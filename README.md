@@ -55,8 +55,8 @@ nano .env
 
 3. **Start**
 ```bash
-docker compose pull
-docker compose up -d
+# This fork builds the patched frontend, backend and Yjs server locally.
+docker compose up -d --build
 ```
 
 4. **Access**
