@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Self-hosted so icon ligatures do not depend on Google Fonts (Firefox
+   tracking protection can block that stylesheet, leaving the ligature
+   names visible as text). */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url('/fonts/material-symbols-outlined.woff2') format('woff2');
+}
+
 /* ============================================
    MODERN DESIGN SYSTEM - CSS Variables
    ============================================ */
@@ -183,6 +194,21 @@ html, body, #root {
   border: none !important;
 }
 
+/*
+ * Quill ships a hard-coded #f0f0f0 inline-code background. In dark mode that
+ * leaves light text on a near-white chip. Use a 6% tint of the current text
+ * colour instead: over white that is approximately the original #f0f0f0,
+ * while over any dark editor/note colour it becomes the equivalent subtle
+ * chip. It also follows custom note backgrounds automatically.
+ */
+.ql-editor code,
+.ql-editor .ql-code-block,
+.ql-editor .ql-code-block-container {
+  background-color: color-mix(in srgb, currentColor 6%, transparent) !important;
+  color: inherit !important;
+  border-radius: var(--radius-sm);
+}
+
 /* Quill dropdown styling */
 .ql-picker-options {
   z-index: 10000 !important;
@@ -284,6 +310,22 @@ html, body, #root {
    ============================================ */
 
 .material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: 'liga';
+  -moz-font-feature-settings: 'liga';
+  -webkit-font-feature-settings: 'liga';
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
   font-variation-settings:
     'FILL' 0,
     'wght' 400,

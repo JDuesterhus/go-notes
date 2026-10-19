@@ -1,5 +1,7 @@
 # go-notes
 
+> ⚠️ Disclaimer: This is vibecoded slop and may become unmaintained at any time.
+
 A modern collaborative note-taking application with real-time editing, powerful search, and native clients for desktop and mobile. Multiple users can edit the same note simultaneously with automatic conflict resolution.
 
 ## ✨ Features

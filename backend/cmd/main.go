@@ -1191,9 +1191,10 @@ api.Any("/yjs", func(c *gin.Context) {
 		proxy.Director = func(req *http.Request) {
 			originalDirector(req)
 			req.Host = targetURL.Host
-			// Strip API_BASE_PATH and /yjs from the path
+			// Strip API_BASE_PATH and /yjs from the path.
 			// Example: /test/yjs/socket -> /socket
-			req.URL.Path = strings.TrimPrefix(c.Request.URL.Path, basePath+"/yjs")
+			yjsPrefix := strings.TrimRight(basePath, "/") + "/yjs"
+			req.URL.Path = strings.TrimPrefix(c.Request.URL.Path, yjsPrefix)
 			if req.URL.Path == "" {
 				req.URL.Path = "/"
 			}
@@ -1208,7 +1209,9 @@ api.Any("/yjs", func(c *gin.Context) {
 
 // Serve static frontend files
     api.Static("/assets", "./static/assets")
+    api.Static("/fonts", "./static/fonts")
     api.StaticFile("/vite.svg", "./static/vite.svg")
+    api.StaticFile("/go-notes.png", "./static/go-notes.png")
     
     // Root route serves index.html
     api.GET("/", func(c *gin.Context) {
@@ -1220,7 +1223,7 @@ api.Any("/yjs", func(c *gin.Context) {
         }
         // Inject base tag
         html := string(content)
-        baseTag := fmt.Sprintf(`<base href="%s/">`, basePath)
+        baseTag := fmt.Sprintf(`<base href="%s">`, baseHref(basePath))
         html = strings.Replace(html, "<head>", "<head>"+baseTag, 1)
         c.String(200, html)
     })
@@ -1241,7 +1244,7 @@ api.Any("/yjs", func(c *gin.Context) {
         }
         // Inject base tag
         html := string(content)
-        baseTag := fmt.Sprintf(`<base href="%s/">`, basePath)
+        baseTag := fmt.Sprintf(`<base href="%s">`, baseHref(basePath))
         html = strings.Replace(html, "<head>", "<head>"+baseTag, 1)
         c.String(200, html)
     })
@@ -1250,4 +1253,15 @@ api.Any("/yjs", func(c *gin.Context) {
     if err := r.Run(":" + port); err != nil {
         log.Fatalf("Gin server failed: %v", err)
     }
+}
+
+// baseHref returns the URL path prefix for the frontend's <base> tag.
+// A root deployment ("/" or "") must produce "/", not "//", otherwise every
+// relative asset URL is resolved against an empty host.
+func baseHref(basePath string) string {
+    trimmed := strings.TrimRight(basePath, "/")
+    if trimmed == "" {
+        return "/"
+    }
+    return trimmed + "/"
 }

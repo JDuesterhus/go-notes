@@ -8,7 +8,9 @@ const axios = require('axios');
  */
 async function validateToken(token, roomId) {
   const backendUrl = process.env.GO_BACKEND_URL || 'http://backend:8080';
-  const apiBasePath = process.env.API_BASE_PATH || '/';
+  // Root deployment is "/" (or empty). Strip trailing slashes so the URL
+  // below never becomes "//validate-yjs-token".
+  const apiBasePath = (process.env.API_BASE_PATH || '/').replace(/\/+$/, '');
   
   // Parse workspace_id from room ID (format: w{workspace_id}_n{note_id})
   const match = roomId.match(/^w(\d+)_n(\d+)$/);

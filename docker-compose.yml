@@ -18,7 +18,10 @@ services:
       retries: 5
 
   yjs:
-    image: ghcr.io/thefozid/go-notes-yjs:latest
+    build:
+      context: .
+      target: yjs
+    image: go-notes-yjs:local
     container_name: go-notes-yjs
     environment:
       DB_HOST: db
@@ -38,7 +41,10 @@ services:
     restart: unless-stopped
 
   backend:
-    image: ghcr.io/thefozid/go-notes-backend:latest
+    build:
+      context: .
+      target: backend
+    image: go-notes-backend:local
     container_name: go-notes-backend
     ports:
       - "${PORT:-8060}:${PORT:-8060}"
@@ -61,7 +67,7 @@ services:
       yjs:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${PORT:-8060}${API_BASE_PATH:-/test}/health/live"]
+      test: ["CMD-SHELL", "base='${API_BASE_PATH:-/test}'; base=$${base%/}; curl -fsS http://localhost:${PORT:-8060}$$base/health/live"]
       interval: 10s
       timeout: 5s
       retries: 3

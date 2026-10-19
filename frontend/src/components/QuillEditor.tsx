@@ -13,6 +13,7 @@ import { useConnectionStore } from '../store/connectionStore';
 import { notifyError } from '../store/dialogStore';
 import { getNote, updateNoteSearchText } from '../api/workspaces';
 import { getNoteColor } from '../utils/noteColors';
+import { normalizeBackgroundContrast } from '../utils/contrast';
 import 'quill/dist/quill.snow.css';
 import 'quill-table-better/dist/quill-table-better.css';
 import 'katex/dist/katex.min.css';
@@ -157,6 +158,21 @@ function QuillEditor() {
     console.log('[QuillEditor] Quill instance created');
 
     /*
+     * Keep user-chosen text backgrounds readable. The handler is attached to
+     * the document model, so it also catches backgrounds from pasted content,
+     * remote collaborators, and existing notes.
+     */
+    const quill = quillRef.current!;
+    const enforceReadableBackgrounds = () => {
+      if (!quillRef.current) return;
+      const background = containerRef.current
+        ? getComputedStyle(containerRef.current).backgroundColor
+        : undefined;
+      normalizeBackgroundContrast(quillRef.current, background);
+    };
+    quill.on('text-change', enforceReadableBackgrounds);
+
+    /*
      * Relocate the rarely used groups into the "More" panel. This has to happen
      * after Quill's constructor, which attaches a listener to every button and
      * turns each select into a picker. Those listeners live on the elements, so
@@ -199,6 +215,7 @@ function QuillEditor() {
       // Previously this listener was never removed
       toolbarContainer?.removeEventListener('click', onToolbarClick);
       morePanel?.removeEventListener('click', onToolbarClick);
+      quill.off('text-change', enforceReadableBackgrounds);
       quillRef.current = null;
     };
   }, []);
@@ -406,6 +423,18 @@ function QuillEditor() {
 
         if (containerRef.current) {
           containerRef.current.style.backgroundColor = getNoteColor(noteData.color, isDark);
+        }
+
+        // The text-change handler catches most of this, but run once after the
+        // note background is applied as well, so already-saved notes are fixed
+        // immediately even if their document loads without another change.
+        if (quillRef.current) {
+          normalizeBackgroundContrast(
+            quillRef.current,
+            containerRef.current
+              ? getComputedStyle(containerRef.current).backgroundColor
+              : undefined,
+          );
         }
 
         if (!cancelled) {
