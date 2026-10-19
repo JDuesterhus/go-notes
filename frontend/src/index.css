@@ -179,6 +179,9 @@ html, body, #root {
 }
 
 .ql-editor {
+  /* Anchors Quill's absolutely positioned placeholder to the editor box
+     instead of the wider .ql-container. */
+  position: relative;
   font-size: 16px;
   line-height: 1.7;
   color: var(--text-main);
@@ -187,7 +190,17 @@ html, body, #root {
   background-color: transparent;
   max-width: 46rem;
   margin: 0 auto;
-  padding: 24px 20px 40vh;
+  padding: 24px 20px 40vh !important;
+}
+
+/* Quill's stock placeholder is near-black and is positioned against the
+   container, so in dark mode it was invisible and sat left of the caret.
+   Match it to the theme and to the editor's real text box. */
+.ql-editor.ql-blank::before {
+  color: var(--text-secondary) !important;
+  left: 20px !important;
+  right: 20px !important;
+  top: 24px !important;
 }
 
 .ql-container.ql-snow {
@@ -935,7 +948,12 @@ html, body, #root {
 @media (max-width: 767px) {
   .editor-header-inner { padding: 10px 14px 0; }
   .note-title-input { font-size: 20px; }
-  .ql-editor { padding: 16px 14px 40vh; }
+  .ql-editor { padding: 16px 14px 40vh !important; }
+  .ql-editor.ql-blank::before {
+    left: 14px !important;
+    right: 14px !important;
+    top: 16px !important;
+  }
 }
 
 /* ============================================
