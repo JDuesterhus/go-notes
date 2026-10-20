@@ -203,6 +203,31 @@ html, body, #root {
   top: 24px !important;
 }
 
+/*
+ * Full-width mode, toggled from the note header. The reading column is the
+ * default; the toggle lets the text use the whole editor pane instead.
+ */
+.editor-shell--wide .editor-header-inner,
+.editor-shell--wide .ql-editor {
+  max-width: none;
+}
+
+/* Keep a comfortable gutter instead of letting text touch the pane edge */
+.editor-shell--wide .editor-header-inner {
+  padding-left: clamp(20px, 4vw, 64px);
+  padding-right: clamp(20px, 4vw, 64px);
+}
+
+.editor-shell--wide .ql-editor {
+  padding-left: clamp(20px, 4vw, 64px) !important;
+  padding-right: clamp(20px, 4vw, 64px) !important;
+}
+
+.editor-shell--wide .ql-editor.ql-blank::before {
+  left: clamp(20px, 4vw, 64px) !important;
+  right: clamp(20px, 4vw, 64px) !important;
+}
+
 .ql-container.ql-snow {
   border: none !important;
 }
@@ -255,17 +280,17 @@ html, body, #root {
 }
 
 .ql-toolbar.ql-snow::-webkit-scrollbar-track {
-  background: var(--gray-100);
+  background: transparent;
   border-radius: 4px;
 }
 
 .ql-toolbar.ql-snow::-webkit-scrollbar-thumb {
-  background: var(--gray-300);
+  background: var(--border-hover);
   border-radius: 4px;
 }
 
 .ql-toolbar.ql-snow::-webkit-scrollbar-thumb:hover {
-  background: var(--gray-400);
+  background: var(--text-tertiary);
 }
 
 /* ============================================
@@ -300,22 +325,43 @@ html, body, #root {
    CUSTOM SCROLLBAR (Global)
    ============================================ */
 
+/*
+ * Scrollbars have to follow the theme. The old colours were fixed greys, so
+ * dark mode kept a bright track and thumb. Deriving them from the theme tokens
+ * covers both palettes and every scroll container (editor, sidebar, dialogs).
+ */
+:root {
+  --scrollbar-thumb: var(--border-hover);
+  --scrollbar-thumb-hover: var(--text-tertiary);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+/* Chromium, Safari, Android WebView */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--gray-50);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--gray-300);
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--gray-400);
+  background: var(--scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* ============================================
@@ -476,6 +522,18 @@ html, body, #root {
 .resize-handle:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .icon-btn:disabled:hover {
+    background-color: transparent;
+    color: var(--text-secondary);
+  }
 }
 
 /* User menu */
@@ -803,6 +861,45 @@ html, body, #root {
   /* Keep the label, but let the breadcrumb give up room for it first */
   .conn-label { font-size: 12px; }
   .breadcrumb-part--current { max-width: 40vw; overflow: hidden; text-overflow: ellipsis; }
+}
+
+/* Shown after choosing a Markdown file for a note that already has text */
+.markdown-paste-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 32px);
+  padding: 4px 4px 4px 12px;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-main);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  color: var(--text-main);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.markdown-paste-hint > .material-symbols-outlined {
+  font-size: 18px;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.markdown-paste-hint__text {
+  min-width: 0;
+}
+
+/* On a phone the top of the pane is where the text is; keep the hint clear */
+@media (max-width: 767px) {
+  .markdown-paste-hint {
+    top: auto;
+    bottom: 12px;
+  }
 }
 
 .editor-loading {

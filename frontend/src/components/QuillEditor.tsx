@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import Quill from 'quill';
 import { QuillBinding } from 'y-quill';
 import * as Y from 'yjs';
@@ -10,10 +10,15 @@ import useWorkspaceStore from '../store/workspaceStore';
 import useAuthStore from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import { useConnectionStore } from '../store/connectionStore';
-import { notifyError } from '../store/dialogStore';
+import { notify, notifyError } from '../store/dialogStore';
 import { getNote, updateNoteSearchText } from '../api/workspaces';
 import { getNoteColor } from '../utils/noteColors';
 import { normalizeBackgroundContrast } from '../utils/contrast';
+import {
+  applyMarkdownImport,
+  markdownToActions,
+  type MarkdownImportAction,
+} from '../utils/markdownImport';
 import 'quill/dist/quill.snow.css';
 import 'quill-table-better/dist/quill-table-better.css';
 import 'katex/dist/katex.min.css';
@@ -27,6 +32,9 @@ Quill.register({
   'modules/table-better': QuillTableBetter
 }, true);
 Quill.register('modules/imageResize', ImageResize);
+
+const WIDE_EDITOR_KEY = 'go-notes.editor-wide';
+const MAX_MARKDOWN_BYTES = 5 * 1024 * 1024;
 
 const CURSOR_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A',
@@ -63,6 +71,22 @@ function QuillEditor() {
   const isLoadingNote = connectionStatus === 'loading';
   const [moreOpen, setMoreOpen] = useState(false);
   const [title, setTitle] = useState('');
+  const [isWide, setIsWide] = useState(() => {
+    try {
+      return window.localStorage.getItem(WIDE_EDITOR_KEY) === '1';
+    } catch {
+      // Storage can be unavailable (private mode, locked-down WebView)
+      return false;
+    }
+  });
+  const [pendingImport, setPendingImport] = useState<{
+    noteId: number;
+    actions: MarkdownImportAction[];
+  } | null>(null);
+  // The armed import belongs to one note; switching notes hides it
+  const pendingPaste =
+    pendingImport !== null && pendingImport.noteId === selectedNoteId;
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -629,13 +653,106 @@ function QuillEditor() {
     }
   }
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(WIDE_EDITOR_KEY, isWide ? '1' : '0');
+    } catch {
+      // Not being able to remember the choice is not worth an error
+    }
+  }, [isWide]);
+
+  /*
+   * For a note that already has text, the import waits for a click inside the
+   * editor and inserts at the caret that click produced. Listening for a click
+   * (rather than selection-change) also covers clicking the spot the caret is
+   * already on, and avoids firing from a programmatic focus().
+   */
+  useEffect(() => {
+    if (!pendingImport || pendingImport.noteId !== selectedNoteId) return;
+    const quill = quillRef.current;
+    if (!quill) return;
+
+    let inserted = false;
+    const onClick = () => {
+      if (inserted) return;
+      const range = quill.getSelection(true);
+      if (!range) return;
+
+      inserted = true;
+      const { actions } = pendingImport;
+      setPendingImport(null);
+      applyMarkdownImport(quill, actions, range.index);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPendingImport(null);
+    };
+
+    quill.root.addEventListener('click', onClick);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      quill.root.removeEventListener('click', onClick);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [pendingImport, selectedNoteId]);
+
+  function cancelPendingPaste() {
+    setPendingImport(null);
+  }
+
+  async function handleMarkdownFile(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    // Allow choosing the same file again after a cancel
+    input.value = '';
+    if (!file) return;
+
+    const quill = quillRef.current;
+    if (!quill) return;
+
+    if (file.size > MAX_MARKDOWN_BYTES) {
+      notifyError('Markdown files are limited to 5 MB');
+      return;
+    }
+
+    try {
+      const noteId = selectedNoteId;
+      const markdown = await file.text();
+      // Reading the file is async; do not paste into a note the user moved to
+      if (noteId == null || useWorkspaceStore.getState().selectedNoteId !== noteId) {
+        return;
+      }
+
+      const actions = markdownToActions(quill, markdown);
+      if (actions.length === 0) {
+        notifyError('That file contains no text to import');
+        return;
+      }
+
+      if (quill.getText().trim().length === 0) {
+        applyMarkdownImport(quill, actions, 0);
+        notify(`Imported ${file.name}`);
+        return;
+      }
+
+      setPendingImport({ noteId, actions });
+      quill.focus();
+    } catch (error) {
+      console.error('[QuillEditor] Markdown import failed:', error);
+      notifyError('Could not read that Markdown file');
+    }
+  }
+
   return (
-    <div style={{ 
-      height: '100%', 
-      display: 'flex', 
-      flexDirection: 'column',
-      backgroundColor: 'var(--bg-main)'
-    }}>
+    <div
+      className={`editor-shell${isWide ? ' editor-shell--wide' : ''}`}
+      style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: 'var(--bg-main)'
+      }}
+    >
       {/* Note header: title, tags, colour, then formatting */}
       <div
         className="editor-header"
@@ -675,6 +792,26 @@ function QuillEditor() {
               </button>
               <button className="icon-btn" onClick={handleRedo} title="Redo" aria-label="Redo">
                 <span className="material-symbols-outlined">redo</span>
+              </button>
+              <button
+                className="icon-btn"
+                onClick={() => setIsWide((wide) => !wide)}
+                title={isWide ? 'Use reading width' : 'Use full width'}
+                aria-label={isWide ? 'Use reading width' : 'Use full width'}
+                aria-pressed={isWide}
+              >
+                <span className="material-symbols-outlined">
+                  {isWide ? 'width_normal' : 'width_wide'}
+                </span>
+              </button>
+              <button
+                className="icon-btn"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!selectedNoteId || isLoadingNote}
+                title="Import Markdown file"
+                aria-label="Import Markdown file"
+              >
+                <span className="material-symbols-outlined">upload_file</span>
               </button>
             </div>
           </div>
@@ -761,7 +898,35 @@ function QuillEditor() {
             Opening note...
           </div>
         )}
+
+        {pendingPaste && (
+          <div className="markdown-paste-hint" role="status">
+            <span className="material-symbols-outlined" aria-hidden="true">
+              content_paste
+            </span>
+            <span className="markdown-paste-hint__text">
+              Click into the text to paste the Markdown
+            </span>
+            <button
+              type="button"
+              className="icon-btn icon-btn-sm"
+              onClick={cancelPendingPaste}
+              title="Cancel"
+              aria-label="Cancel Markdown paste"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>
+        )}
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".md,.markdown,.mdown,.txt,text/markdown,text/plain"
+        onChange={handleMarkdownFile}
+        hidden
+      />
       
 {/* Inject styles to fix checklist sizing and remove duplicates */}
       <style>{`
