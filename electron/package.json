@@ -57,7 +57,8 @@
         "dmg"
       ],
       "icon": "icon.png",
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     }
   }
 }
