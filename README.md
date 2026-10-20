@@ -609,6 +609,17 @@ docker compose restart db
 - Ensure `JWT_SECRET` is at least 32 characters
 - Restart backend after changing: `docker compose restart backend`
 
+**Linux AppImage crashes with SIGTRAP on Ubuntu/Kubuntu 23.10+:**
+Ubuntu restricts unprivileged user namespaces through AppArmor, and an
+AppImage cannot use the SUID Chromium sandbox from its temporary mount.
+Since 1.4.1 the AppImage detects this and starts with `--no-sandbox`
+automatically.
+- Use `go-notes-1.4.1.AppImage` or newer.
+- If it still crashes, start it explicitly with `--no-sandbox`.
+- To keep the Chromium sandbox, add an AppArmor profile with `userns,` for
+  the AppImage path, or lower `kernel.apparmor_restrict_unprivileged_userns`
+  system-wide (a security trade-off).
+
 ### Network Issues
 
 **Can't access via browser:**
