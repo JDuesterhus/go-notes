@@ -24,7 +24,11 @@ function LoginPage() {
       const basename = baseTag?.getAttribute('href')?.replace(/\/$/, '') || '';
       window.location.href = basename + '/';
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Login failed');
+      if (err.response?.status === 429) {
+        setError('Too many login attempts. Try again later.');
+      } else {
+        setError(err.response?.data?.error || 'Login failed');
+      }
     } finally {
       setLoading(false);
     }
