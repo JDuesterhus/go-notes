@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import useWorkspaceStore from '../store/workspaceStore';
 import InputModal from './InputModal';
 import ConfirmModal from './ConfirmModal';
@@ -23,7 +23,7 @@ export default function NoteNode({ note, workspaceId, onUpdate }: NoteNodeProps)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [showTrashModal, setShowTrashModal] = useState(false);
-  const [noteColor, setNoteColor] = useState(note.color);
+  const noteColor = note.color;
   const {
     updateNote: updateNoteInStore,
     setSelectedNote,
@@ -32,17 +32,15 @@ export default function NoteNode({ note, workspaceId, onUpdate }: NoteNodeProps)
     enterMoveMode,
   } = useWorkspaceStore();
   
-  // Update color when note.color changes
-  useEffect(() => {
-    setNoteColor(note.color);
-  }, [note.color]);
-
   const isSelected = selectedNoteId === note.id;
   const { isDark } = useThemeStore();
+  const hasCustomColor = Boolean(noteColor) && noteColor.toUpperCase() !== '#FFFFFF';
   const rowBackground = isSelected
     ? (isDark ? '#1e3a8a' : '#eff6ff')
     : (isDark ? '#1f2937' : '#f9fafb');
-  const noteBorderColor = getNoteBorderColor(noteColor, isDark, rowBackground);
+  const noteBorderColor = hasCustomColor
+    ? getNoteBorderColor(noteColor, isDark, rowBackground)
+    : 'transparent';
 
   function handleClick() {
     if (moveMode.active) return; // Don't select note in move mode
@@ -90,9 +88,6 @@ export default function NoteNode({ note, workspaceId, onUpdate }: NoteNodeProps)
     { label: 'Move', onClick: () => enterMoveMode('note', note.id, workspaceId, note.folder_id) },
     { label: 'Trash', onClick: () => setShowTrashModal(true), danger: true },
   ];
-
-  // Determine if we should show the color indicator
-  const hasCustomColor = noteColor && noteColor.toUpperCase() !== '#FFFFFF';
 
   return (
     <div style={{ marginBottom: '2px' }}>

@@ -3,28 +3,24 @@ import { contrastRatio, parseCssColor } from './contrast';
 // WCAG 1.4.11: non-text UI (a border) needs 3:1 against its background
 const MIN_BORDER_CONTRAST = 3;
 
-// 9 Post-it note style colours
+/*
+ * Mid-tone colours instead of pastels: each one reaches at least 3:1 against
+ * the light and the dark sidebar background, so the same swatch and stripe
+ * work in both themes. White is not a colour here; it means "no colour".
+ */
 export const NOTE_COLORS = [
-  { name: 'White', value: '#FFFFFF', dark: '#1f2937' },       // Dark Gray
-  { name: 'Yellow', value: '#FFF9C4', dark: '#424019' },      // Dark Yellow
-  { name: 'Pink', value: '#FFE0E0', dark: '#4a1919' },        // Dark Pink
-  { name: 'Blue', value: '#D1E7FF', dark: '#1e3a5f' },       // Dark Blue
-  { name: 'Green', value: '#D4EDDA', dark: '#1f4626' },      // Dark Green
-  { name: 'Orange', value: '#FFE5CC', dark: '#4d2d15' },     // Dark Orange
-  { name: 'Purple', value: '#E8DAEF', dark: '#37263c' },     // Dark Purple
-  { name: 'Mint', value: '#D5F5E3', dark: '#264030' },       // Dark Mint
-  { name: 'Peach', value: '#FADBD8', dark: '#5c3633' },      // Dark Peach
+  { name: 'Red', value: '#EF4444' },
+  { name: 'Orange', value: '#EA580C' },
+  { name: 'Amber', value: '#D97706' },
+  { name: 'Green', value: '#16A34A' },
+  { name: 'Teal', value: '#0D9488' },
+  { name: 'Blue', value: '#3B82F6' },
+  { name: 'Indigo', value: '#6366F1' },
+  { name: 'Violet', value: '#8B5CF6' },
+  { name: 'Pink', value: '#EC4899' },
 ];
 
 export const DEFAULT_NOTE_COLOR = '#FFFFFF';
-
-export function getNoteColor(value: string, isDark: boolean): string {
-  const colorObj = NOTE_COLORS.find(c => c.value.toUpperCase() === value.toUpperCase());
-  if (isDark) {
-    return colorObj?.dark || '#1f2937';
-  }
-  return colorObj?.value || '#FFFFFF';
-}
 
 type Rgba = NonNullable<ReturnType<typeof parseCssColor>>;
 
@@ -46,10 +42,9 @@ function mix(from: Rgba, to: Rgba, amount: number): Rgba {
 }
 
 /**
- * The sidebar/editor stripe has to stay recognisable as the note colour while
- * remaining visible. Pastel notes on a white page (and white notes on white)
- * are nearly invisible, so darken (or lighten on a dark background) just
- * enough to reach 3:1.
+ * A note colour is used as a stripe in the sidebar. On a selected row the
+ * background changes, so nudge the stripe toward black/white just enough to
+ * keep 3:1. Unselected rows keep the exact palette colour.
  */
 export function getNoteBorderColor(
   value: string,
@@ -57,19 +52,9 @@ export function getNoteBorderColor(
   background?: string,
 ): string {
   const bg =
-    parseCssColor(background ?? getNoteColor(value, isDark)) ??
+    parseCssColor(background ?? (isDark ? '#1f2937' : '#f9fafb')) ??
     parseCssColor('#ffffff')!;
-  const entry = NOTE_COLORS.find(
-    (color) => color.value.toUpperCase() === value.toUpperCase(),
-  );
-  /*
-   * Use the opposite end of the palette: on light paper the deep variant is
-   * vivid and readable, on dark paper the light one. Falls back to the chosen
-   * colour for custom values.
-   */
-  const preferredValue = entry ? (isDark ? entry.value : entry.dark) : value;
-  const preferred =
-    parseCssColor(preferredValue) ?? parseCssColor('#ffffff')!;
+  const preferred = parseCssColor(value) ?? parseCssColor('#ffffff')!;
 
   if (contrastRatio(preferred, bg) >= MIN_BORDER_CONTRAST) {
     return toHex(preferred);
