@@ -18,13 +18,13 @@ import { useUIStore, clampSidebarWidth, SIDEBAR_MIN, SIDEBAR_MAX } from './store
 import { getWorkspaces, getFolders, getNotes } from './api/workspaces';
 import { setAppTitle } from './utils/appTitle';
 
-const LAST_NOTE_KEY = 'go-notes-last-selected-note';
+const LAST_NOTE_KEY = 'go-notes-last-note-public-id';
 const SIDEBAR_KEY_STEP = 16;
 
 // Main app layout
 function MainApp() {
   const isMobile = useIsMobile();
-  const { noteId: routeNoteId } = useParams();
+  const { publicId: routePublicId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -33,7 +33,7 @@ function MainApp() {
   const [dataLoaded, setDataLoaded] = useState(false);
   const dragStart = useRef<{ x: number; width: number } | null>(null);
   // The URL is read once on mount; later selections write the URL instead.
-  const initialRouteNoteRef = useRef<string | undefined>(routeNoteId);
+  const initialRoutePublicIdRef = useRef<string | undefined>(routePublicId);
 
   const desktopSidebarOpen = useUIStore((state) => state.desktopSidebarOpen);
   const mobileSidebarOpen = useUIStore((state) => state.mobileSidebarOpen);
@@ -141,15 +141,13 @@ function MainApp() {
         setNotes(allNotes);
         setDataLoaded(true);
 
-        // A deep link wins over the last selected note. Public IDs are the
-        // normal form; numeric IDs keep links from older releases working.
-        const initialRouteNote = initialRouteNoteRef.current;
-        const lastNoteId = localStorage.getItem(LAST_NOTE_KEY);
-        const requestedNote = initialRouteNote != null
-          ? allNotes.find(n => n.public_id === initialRouteNote && !n.is_trashed)
-            ?? allNotes.find(n => String(n.id) === initialRouteNote && !n.is_trashed)
-          : lastNoteId
-            ? allNotes.find(n => n.id === parseInt(lastNoteId, 10) && !n.is_trashed)
+        // A deep link wins over the last selected note. Both use public IDs.
+        const initialRoutePublicId = initialRoutePublicIdRef.current;
+        const lastPublicId = localStorage.getItem(LAST_NOTE_KEY);
+        const requestedNote = initialRoutePublicId != null
+          ? allNotes.find(n => n.public_id === initialRoutePublicId && !n.is_trashed)
+          : lastPublicId
+            ? allNotes.find(n => n.public_id === lastPublicId && !n.is_trashed)
             : undefined;
 
         if (requestedNote) {
@@ -175,11 +173,11 @@ function MainApp() {
           // Select the note immediately
           setSelectedNote(requestedNote.id);
           console.log('[MainApp] Note restored:', requestedNote.id);
-        } else if (initialRouteNote != null) {
+        } else if (initialRoutePublicId != null) {
           console.log('[MainApp] Note no longer exists or is not accessible');
           localStorage.removeItem(LAST_NOTE_KEY);
           navigate('/', { replace: true });
-        } else if (lastNoteId) {
+        } else if (lastPublicId) {
           localStorage.removeItem(LAST_NOTE_KEY);
         }
       } catch (error) {
@@ -190,23 +188,23 @@ function MainApp() {
     loadAndRestore();
   }, []);
 
-  // Save last selected note to localStorage
+  // Remember the open note by its public ID
   useEffect(() => {
-    if (selectedNoteId !== null && dataLoaded) {
-      localStorage.setItem(LAST_NOTE_KEY, selectedNoteId.toString());
-      console.log('[MainApp] Saved last note:', selectedNoteId);
+    if (!dataLoaded || selectedNoteId === null) return;
+    const note = useWorkspaceStore.getState().getNoteById(selectedNoteId);
+    if (note?.public_id) {
+      localStorage.setItem(LAST_NOTE_KEY, note.public_id);
+      console.log('[MainApp] Saved last note:', note.public_id);
     }
   }, [selectedNoteId, dataLoaded]);
 
-  // Keep a shareable note path in the address bar. The public ID is random;
-  // numeric IDs only remain as a fallback for notes from older deployments.
+  // Keep the public note path in the address bar
   useEffect(() => {
     if (!dataLoaded) return;
     const note = selectedNoteId !== null
       ? useWorkspaceStore.getState().getNoteById(selectedNoteId)
       : undefined;
-    const noteRef = note?.public_id || (selectedNoteId !== null ? String(selectedNoteId) : null);
-    const target = noteRef ? `/note/${noteRef}` : '/';
+    const target = note?.public_id ? `/note/${note.public_id}` : '/';
     if (location.pathname !== target) {
       navigate(target, { replace: true });
     }
@@ -403,7 +401,7 @@ function AuthRoutes() {
       />
 
       <Route
-        path="/note/:noteId"
+        path="/note/:publicId"
         element={
           <ProtectedRoute>
             <MainApp />
