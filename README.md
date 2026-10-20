@@ -15,7 +15,7 @@ A modern collaborative note-taking application with real-time editing, powerful 
 - **Offline support** - Edit offline, auto-syncs when reconnected
 - **Trash system** - Soft-delete with restore capability
 - **💻 Desktop app** - Native Electron app for Linux, Windows, macOS
-- **📱 Android app** - Native mobile client with offline caching
+- **📱 Android app** - WebView shell for Android 8+
 - **📐 Responsive** - Adapts to desktop landscape and phone portrait
 - **🔒 Production-ready** - Rate limiting, CORS, health checks, optimized performance
 
@@ -165,11 +165,10 @@ Native Electron application for Linux, Windows, and macOS.
 
 ### Features
 - Server configuration screen
-- Offline caching for read-only access
-- Connection status indicator (red bars when offline)
-- Change server via menu option
-- Native desktop performance
-- Secure credential storage
+- Native Electron window for your go-notes server
+- Change server via the in-app menu
+- Connection status indicator
+- Requires network access to the server (no offline mode)
 
 ### Installation
 
@@ -181,25 +180,26 @@ paru -S go-notes
 ```
 
 #### Other Linux Distributions
-Download the **AppImage** from [GitHub Releases](https://github.com/TheFozid/go-notes/releases/latest):
+Download the **AppImage** from [GitHub Releases](https://github.com/JDuesterhus/go-notes/releases/latest):
 ```bash
 # Download and make executable
-chmod +x go-notes-*-linux-x86_64.AppImage
+chmod +x go-notes-<version>.AppImage
 
 # Run
-./go-notes-*-linux-x86_64.AppImage
+./go-notes-<version>.AppImage
 ```
 
 Or extract the **tar.gz** to install manually.
 
 #### Windows
-Download from [GitHub Releases](https://github.com/TheFozid/go-notes/releases/latest):
-- **Setup installer** (recommended): `go-notes-*-windows-install.exe`
-- **Portable version**: `go-notes-*-windows-portable.exe` (no installation required)
+Download from [GitHub Releases](https://github.com/JDuesterhus/go-notes/releases/latest):
+- **Setup installer** (recommended): `go-notes.Setup.<version>.exe`
+- **Portable version**: `go-notes.<version>.exe` (no installation required)
 
 #### macOS
-Download from [GitHub Releases](https://github.com/TheFozid/go-notes/releases/latest):
-- **DMG installer**: `go-notes-*-macos.dmg`
+Download from [GitHub Releases](https://github.com/JDuesterhus/go-notes/releases/latest):
+- **Apple Silicon**: `go-notes-<version>-arm64.dmg`
+- **Intel**: `go-notes-<version>-x64.dmg`
 
 ### First Launch
 1. Open the app
@@ -210,33 +210,24 @@ Download from [GitHub Releases](https://github.com/TheFozid/go-notes/releases/la
 3. Login with your credentials
 4. Start editing!
 
-### Offline Access
-The desktop app caches the interface and previously viewed content for offline viewing. When offline:
-- ✅ View previously loaded notes (read-only)
-- ✅ Navigate through cached workspaces
-- ✅ Search cached content
-- ❌ Cannot create or edit notes
-- ❌ Cannot sync changes
-
-Content automatically syncs when connection is restored.
-
 ---
 
 ## 📱 Android App
 
-Native Android client for accessing go-notes on mobile devices.
+Android app for accessing go-notes on mobile devices.
 
 ### Features
-- Configure custom server URL
-- Offline caching (read-only)
-- Connection status indicator (red bars when offline)
-- Change server option via menu
-- Native Android performance
-- Material Design UI
+- Configure a custom server URL on first launch
+- Native WebView shell around the web app
+- Android document picker for Markdown import
+- Back navigation and a "Change server" menu
 
 ### Download
 
-**[Download go-notes-android.apk](https://github.com/TheFozid/go-notes/releases/latest)** from GitHub Releases
+**[Download the latest APK](https://github.com/JDuesterhus/go-notes/releases/latest)** from GitHub Releases.
+
+Until Android signing secrets are configured, the asset is named
+`go-notes-<version>-debug.apk` and is signed with the Android debug key.
 
 ### Installation
 
@@ -252,10 +243,8 @@ Native Android client for accessing go-notes on mobile devices.
 ### Requirements
 - Android 8.0+ (API 26+)
 - Access to a go-notes server (local network or public domain)
-- Internet connection (for sync, not required for cached content)
 
-### Offline Access
-Same offline capabilities as desktop app - read-only access to cached content with full search functionality.
+The app opens your server in a WebView; it is not an offline client.
 
 ---
 
@@ -647,11 +636,6 @@ docker compose restart db
 - Check server is accessible from device network
 - Test in browser first: `http://your-server:8060/`
 - Check server health: `/health/ready` endpoint
-
-**Offline content missing:**
-- Content only cached after viewing while online
-- Open notes while online to cache them
-- Check device storage space
 
 **Connection status stuck red:**
 - Check device network connection

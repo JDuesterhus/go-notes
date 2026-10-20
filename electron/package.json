@@ -1,6 +1,6 @@
 {
   "name": "go-notes",
-  "version": "1.0.0",
+  "version": "1.4.0",
   "description": "Desktop client for go-notes collaborative note-taking",
   "main": "main.js",
   "scripts": {
