@@ -15,7 +15,10 @@ function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await login(username, password);
+      // Phone keyboards and autocomplete often append a trailing space
+      const cleanUsername = username.trim();
+      if (cleanUsername !== username) setUsername(cleanUsername);
+      const response = await login(cleanUsername, password);
       setAuth(response.token, response.user);
       const baseTag = document.querySelector('base');
       const basename = baseTag?.getAttribute('href')?.replace(/\/$/, '') || '';
@@ -82,6 +85,9 @@ function LoginPage() {
               onChange={(e) => setUsername(e.target.value)}
               required
               autoFocus
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -97,6 +103,7 @@ function LoginPage() {
                 e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
               }}
               onBlur={(e) => {
+                setUsername((value) => value.trim());
                 e.currentTarget.style.borderColor = 'var(--border-hover)';
                 e.currentTarget.style.boxShadow = 'none';
               }}

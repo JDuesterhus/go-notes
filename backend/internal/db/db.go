@@ -56,6 +56,7 @@ func GetUserCount(db *sql.DB) (int, error) {
 }
 
 func CreateAdmin(db *sql.DB, username, passwordHash string) error {
+    username = strings.TrimSpace(username)
     var userID int
     err := db.QueryRow(
         "INSERT INTO users (username, password_hash, is_admin) VALUES ($1, $2, TRUE) RETURNING id",
@@ -78,13 +79,25 @@ func GetUserByID(db *sql.DB, id int) (*User, error) {
 }
 
 func GetUserByUsername(db *sql.DB, username string) (*User, error) {
+    username = strings.TrimSpace(username)
     var u User
-    err := db.QueryRow("SELECT id, username, password_hash, is_admin, created_at FROM users WHERE username = $1", username).
+    err := db.QueryRow("SELECT id, username, password_hash, is_admin, created_at FROM users WHERE LOWER(username) = LOWER($1)", username).
         Scan(&u.ID, &u.Username, &u.PasswordHash, &u.IsAdmin, &u.CreatedAt)
     if err != nil {
         return nil, err
     }
     return &u, nil
+}
+
+// UsernameExists reports whether a username is already taken, ignoring case.
+// excludeID lets a rename keep the user's own name.
+func UsernameExists(db *sql.DB, username string, excludeID int) (bool, error) {
+    var exists bool
+    err := db.QueryRow(
+        "SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(username) = LOWER($1) AND id <> $2)",
+        strings.TrimSpace(username), excludeID,
+    ).Scan(&exists)
+    return exists, err
 }
 
 func ListUsers(db *sql.DB) ([]User, error) {
@@ -108,6 +121,7 @@ func ListUsers(db *sql.DB) ([]User, error) {
 }
 
 func CreateUser(db *sql.DB, username, passwordHash string, isAdmin bool) error {
+    username = strings.TrimSpace(username)
     var userID int
     err := db.QueryRow("INSERT INTO users (username, password_hash, is_admin) VALUES ($1, $2, $3) RETURNING id", username, passwordHash, isAdmin).Scan(&userID)
     if err != nil {
@@ -171,7 +185,7 @@ func CreateDefaultWorkspaceForUser(db *sql.DB, userID int, username string) erro
 
 
 func UpdateUser(db *sql.DB, id int, username, passwordHash string) error {
-    _, err := db.Exec("UPDATE users SET username=$1, password_hash=$2 WHERE id=$3", username, passwordHash, id)
+    _, err := db.Exec("UPDATE users SET username=$1, password_hash=$2 WHERE id=$3", strings.TrimSpace(username), passwordHash, id)
     return err
 }
 
@@ -776,9 +790,9 @@ func SearchNotes(db *sql.DB, userID int, query string, mode string) ([]Note, err
 			WHERE n.workspace_id = ANY($1)
 			AND n.is_trashed = FALSE
 			AND (
-				LOWER(n.title) LIKE $2
-				OR LOWER(t.name) LIKE $2
-				OR to_tsvector('english', n.content_text) @@ plainto_tsquery('english', $3)
+				immutable_unaccent(LOWER(n.title)) LIKE immutable_unaccent($2)
+				OR immutable_unaccent(LOWER(t.name)) LIKE immutable_unaccent($2)
+				OR to_tsvector('english', immutable_unaccent(COALESCE(n.content_text, ''))) @@ plainto_tsquery('english', immutable_unaccent($3))
 			)
 			ORDER BY n.id DESC
 		`
@@ -792,8 +806,8 @@ func SearchNotes(db *sql.DB, userID int, query string, mode string) ([]Note, err
 			WHERE n.workspace_id = ANY($1)
 			AND n.is_trashed = FALSE
 			AND (
-				LOWER(n.title) LIKE $2
-				OR LOWER(t.name) LIKE $2
+				immutable_unaccent(LOWER(n.title)) LIKE immutable_unaccent($2)
+				OR immutable_unaccent(LOWER(t.name)) LIKE immutable_unaccent($2)
 			)
 			ORDER BY n.id DESC
 		`

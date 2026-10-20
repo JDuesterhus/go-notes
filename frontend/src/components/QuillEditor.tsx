@@ -757,6 +757,15 @@ function QuillEditor() {
               currentColor={currentNoteColor}
               onColorChange={handleColorChange}
             />
+            <button
+              className="icon-btn"
+              onClick={() => setImportOpen(true)}
+              disabled={!selectedNoteId || isLoadingNote}
+              title="Import Markdown"
+              aria-label="Import Markdown"
+            >
+              <span className="material-symbols-outlined">upload_file</span>
+            </button>
             <div className="note-meta-spacer" />
             <div className="history-buttons">
               <button className="icon-btn" onClick={handleUndo} title="Undo" aria-label="Undo">
@@ -775,15 +784,6 @@ function QuillEditor() {
                 <span className="material-symbols-outlined">
                   {isWide ? 'width_normal' : 'width_wide'}
                 </span>
-              </button>
-              <button
-                className="icon-btn"
-                onClick={() => setImportOpen(true)}
-                disabled={!selectedNoteId || isLoadingNote}
-                title="Import Markdown"
-                aria-label="Import Markdown"
-              >
-                <span className="material-symbols-outlined">upload_file</span>
               </button>
             </div>
           </div>

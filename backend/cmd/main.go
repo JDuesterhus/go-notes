@@ -22,6 +22,72 @@ import (
     "github.com/ulule/limiter/v3/drivers/store/memory"
 )
 
+/*
+ * Per-IP+username login failures. The global limiter below already caps each
+ * IP at 5 auth requests/minute; this second layer slows a single account from
+ * one address without letting anyone lock an account for other networks.
+ */
+const (
+    loginFailureWindow = 15 * time.Minute
+    loginFailureLimit  = 10
+)
+
+type loginFailureEntry struct {
+    count   int
+    resetAt time.Time
+}
+
+var (
+    loginFailuresMu sync.Mutex
+    loginFailures   = map[string]loginFailureEntry{}
+)
+
+func loginFailureKey(ip, username string) string {
+    return ip + "|" + strings.ToLower(strings.TrimSpace(username))
+}
+
+func loginBlocked(key string) bool {
+    loginFailuresMu.Lock()
+    defer loginFailuresMu.Unlock()
+
+    entry, ok := loginFailures[key]
+    if !ok {
+        return false
+    }
+    if time.Now().After(entry.resetAt) {
+        delete(loginFailures, key)
+        return false
+    }
+    return entry.count >= loginFailureLimit
+}
+
+func recordLoginFailure(key string) {
+    now := time.Now()
+    loginFailuresMu.Lock()
+    defer loginFailuresMu.Unlock()
+
+    entry, ok := loginFailures[key]
+    if !ok || now.After(entry.resetAt) {
+        entry = loginFailureEntry{resetAt: now.Add(loginFailureWindow)}
+    }
+    entry.count++
+    loginFailures[key] = entry
+
+    if len(loginFailures) > 10000 {
+        for k, e := range loginFailures {
+            if now.After(e.resetAt) {
+                delete(loginFailures, k)
+            }
+        }
+    }
+}
+
+func clearLoginFailures(key string) {
+    loginFailuresMu.Lock()
+    delete(loginFailures, key)
+    loginFailuresMu.Unlock()
+}
+
 func atoi(s string) int {
 	var x int
 	fmt.Sscanf(s, "%d", &x)
@@ -76,7 +142,23 @@ func main() {
 
 
     r := gin.Default()
-    
+
+    /*
+     * Only loopback and private networks may set X-Forwarded-For. Cloudflared
+     * runs on the Docker network; trusting it means the limiter sees the real
+     * client instead of the tunnel address, while public clients cannot spoof
+     * their address.
+     */
+    if err := r.SetTrustedProxies([]string{
+        "127.0.0.1",
+        "::1",
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+    }); err != nil {
+        log.Printf("[WARN] Could not configure trusted proxies: %v", err)
+    }
+
     // Configure CORS
     allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
     if allowedOrigins == "" {
@@ -130,6 +212,16 @@ func main() {
     }
     authMiddleware := mgin.NewMiddleware(limiter.New(store, authRate))
 
+    // Used for unknown usernames so a failed login costs the same bcrypt work
+    // as a wrong password. It keeps the error and the timing uniform.
+    dummyPasswordHash, err := bcrypt.GenerateFromPassword(
+        []byte("go-notes-invalid-password-placeholder"),
+        bcrypt.DefaultCost,
+    )
+    if err != nil {
+        log.Fatalf("Could not prepare password hashing: %v", err)
+    }
+
 api.GET("/health", func(c *gin.Context) {
         c.JSON(200, gin.H{"status": "ok"})
     })
@@ -178,7 +270,8 @@ api.GET("/health", func(c *gin.Context) {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
             return
         }
-        if req.Username == "" || req.Password == "" {
+        username := strings.TrimSpace(req.Username)
+        if username == "" || req.Password == "" {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Username and password required"})
             return
         }
@@ -187,7 +280,7 @@ api.GET("/health", func(c *gin.Context) {
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Password hashing failed"})
             return
         }
-        if err := db.CreateAdmin(database, req.Username, string(passwordHash)); err != nil {
+        if err := db.CreateAdmin(database, username, string(passwordHash)); err != nil {
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Admin creation failed"})
             return
         }
@@ -205,15 +298,38 @@ api.GET("/health", func(c *gin.Context) {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
             return
         }
-        user, err := db.GetUserByUsername(database, req.Username)
+
+        username := strings.TrimSpace(req.Username)
+        if username == "" || req.Password == "" {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Username and password required"})
+            return
+        }
+
+        failureKey := loginFailureKey(c.ClientIP(), username)
+        if loginBlocked(failureKey) {
+            c.Header("Retry-After", "900")
+            c.JSON(http.StatusTooManyRequests, gin.H{
+                "error": "Too many login attempts. Try again later.",
+            })
+            return
+        }
+
+        user, err := db.GetUserByUsername(database, username)
         if err != nil {
-            c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+            // Compare against a dummy hash so a missing account is not
+            // distinguishable from a wrong password by response time.
+            _ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(req.Password))
+            recordLoginFailure(failureKey)
+            c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
             return
         }
         if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)) != nil {
-            c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid password"})
+            recordLoginFailure(failureKey)
+            c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
             return
         }
+
+        clearLoginFailures(failureKey)
         token, err := auth.GenerateToken(user.ID, user.IsAdmin)
         if err != nil {
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Token generation failed"})
@@ -305,12 +421,24 @@ api.GET("/health", func(c *gin.Context) {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
             return
         }
+        username := strings.TrimSpace(req.Username)
+        if username == "" || req.Password == "" {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Username and password required"})
+            return
+        }
+        if exists, err := db.UsernameExists(database, username, 0); err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "User lookup failed"})
+            return
+        } else if exists {
+            c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
+            return
+        }
         passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
         if err != nil {
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Password hashing failed"})
             return
         }
-        err = db.CreateUser(database, req.Username, string(passwordHash), req.IsAdmin)
+        err = db.CreateUser(database, username, string(passwordHash), req.IsAdmin)
         if err != nil {
             c.JSON(http.StatusInternalServerError, gin.H{"error": "User creation failed"})
             return
@@ -369,7 +497,19 @@ userGroup.PUT("/:id", func(c *gin.Context) {
     newPasswordHash := user.PasswordHash
     
     if req.Username != "" {
-        newUsername = req.Username
+        username := strings.TrimSpace(req.Username)
+        if username == "" {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Username cannot be empty"})
+            return
+        }
+        if exists, err := db.UsernameExists(database, username, id); err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "User lookup failed"})
+            return
+        } else if exists {
+            c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
+            return
+        }
+        newUsername = username
     }
     
     if req.Password != "" {

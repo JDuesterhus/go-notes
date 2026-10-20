@@ -13,7 +13,9 @@ function SetupPage() {
     setLoading(true);
 
     try {
-      await createAdmin(username, password);
+      const cleanUsername = username.trim();
+      if (cleanUsername !== username) setUsername(cleanUsername);
+      await createAdmin(cleanUsername, password);
       const baseTag = document.querySelector('base');
       const basename = baseTag?.getAttribute('href')?.replace(/\/$/, '') || '';
       window.location.href = basename + '/login';
@@ -79,6 +81,9 @@ function SetupPage() {
               onChange={(e) => setUsername(e.target.value)}
               required
               autoFocus
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -94,6 +99,7 @@ function SetupPage() {
                 e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
               }}
               onBlur={(e) => {
+                setUsername((value) => value.trim());
                 e.currentTarget.style.borderColor = 'var(--border-hover)';
                 e.currentTarget.style.boxShadow = 'none';
               }}

@@ -60,28 +60,6 @@ export default function SearchPanel() {
       paddingTop: '16px',
       borderTop: '1px solid var(--border-main)'
     }}>
-      {/* Search Header */}
-      <div style={{ 
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 12px 8px 12px'
-      }}>
-        <span className="material-symbols-outlined" style={{ 
-          fontSize: '20px',
-          color: 'var(--text-secondary)',
-          marginRight: '8px'
-        }}>
-          search
-        </span>
-        <span style={{ 
-          fontWeight: 600,
-          fontSize: '14px',
-          color: 'var(--text-main)'
-        }}>
-          Search
-        </span>
-      </div>
-
       {/* Search Input */}
       <div style={{ padding: '0 12px 12px 12px' }}>
         <div style={{ position: 'relative' }}>

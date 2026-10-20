@@ -23,11 +23,14 @@ export async function checkSetup(): Promise<boolean> {
 
 // Create first admin user
 export async function createAdmin(username: string, password: string): Promise<void> {
-  await apiClient.post('/setup', { username, password });
+  await apiClient.post('/setup', { username: username.trim(), password });
 }
 
 // Login user
 export async function login(username: string, password: string): Promise<LoginResponse> {
-  const response = await apiClient.post<LoginResponse>('/login', { username, password });
+  const response = await apiClient.post<LoginResponse>('/login', {
+    username: username.trim(),
+    password,
+  });
   return response.data;
 }
