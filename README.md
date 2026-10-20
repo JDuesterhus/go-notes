@@ -82,6 +82,51 @@ docker compose up -d --build
 
 ---
 
+## 📦 Automated releases
+
+Pushing a version tag runs `.github/workflows/release.yml` and publishes:
+
+- **Linux:** AppImage and tar.gz
+- **Windows:** NSIS installer and portable exe
+- **macOS:** universal DMG
+- **Android:** APK
+
+```bash
+git tag v1.4.0
+git push origin v1.4.0
+```
+
+You can also start a build without publishing from **Actions → Release → Run workflow**.
+
+**Android signing.** Without signing secrets the workflow publishes an installable
+**debug-signed** APK named `go-notes-<version>-debug.apk`. For a proper release APK,
+add these repository secrets:
+
+```bash
+keytool -genkeypair -v -keystore release.keystore -alias go-notes \
+  -keyalg RSA -keysize 2048 -validity 10000
+# Linux/macOS
+base64 -w0 release.keystore
+# Windows PowerShell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.keystore"))
+```
+
+- `ANDROID_KEYSTORE_BASE64` – the base64 text above
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS` – `go-notes`
+- `ANDROID_KEY_PASSWORD`
+
+Keep the keystore file safe: updates must be signed with the same key. The
+package name is `com.gonotes.app`, so an APK signed with a different key cannot
+update an installed copy.
+
+The macOS DMG and the Windows installers are **unsigned** (no Apple/Windows
+certificates in this fork), so Gatekeeper and SmartScreen will warn on first
+launch. Desktop builds use Electron; the Android app is a native WebView shell
+that asks for the server address on first launch.
+
+---
+
 ## 🔍 Search Features
 
 go-notes includes powerful dual-mode search:

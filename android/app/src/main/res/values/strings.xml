@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">go-notes</string>
+    <string name="setup_hint">Enter the address of your go-notes server. Use http:// only for a server on your local network.</string>
+    <string name="server_hint">https://notes.example.com</string>
+    <string name="connect">Connect</string>
+    <string name="invalid_url">Enter a valid http:// or https:// address</string>
+    <string name="reload">Reload</string>
+    <string name="change_server">Change server</string>
+    <string name="load_failed">Could not load the page. Check the server address and your connection.</string>
+</resources>

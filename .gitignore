@@ -30,3 +30,15 @@ deploy/db_data/
 electron/dist/
 electron/node_modules/
 electron/pkg/
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/keystore.properties
+android/*.keystore
+android/release.keystore
+
+# Release uploads
+/dist/
