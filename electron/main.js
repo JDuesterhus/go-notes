@@ -9,6 +9,7 @@ function createConfigWindow() {
     mainWindow = new BrowserWindow({
         width: 600,
         height: 700,
+        icon: path.join(__dirname, 'icon.png'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -24,6 +25,7 @@ function createWebViewWindow(serverUrl) {
     mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
+        icon: path.join(__dirname, 'icon.png'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -41,6 +43,10 @@ function createWebViewWindow(serverUrl) {
 }
 
 app.whenReady().then(() => {
+    if (process.platform === 'win32') {
+        app.setAppUserModelId('com.gonotes.app');
+    }
+
     // Exports are blob downloads from the web app inside the iframe. Ask for
     // a destination instead of silently dropping them in the download folder.
     session.defaultSession.on('will-download', (event, item) => {

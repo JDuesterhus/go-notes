@@ -11,11 +11,12 @@ window.electronAPI.onLoadUrl((url) => {
     webview.src = url;
 });
 
-// The app in the iframe cannot set this window's title (cross origin), so it
-// posts the note title. Only accept messages from the configured server.
+// The app in the iframe cannot style this window or set its title (cross
+// origin), so it posts its note title and theme. Only accept messages from the
+// configured server.
 window.addEventListener('message', (event) => {
     const data = event.data;
-    if (!data || data.type !== 'go-notes-title' || typeof data.title !== 'string') {
+    if (!data || (data.type !== 'go-notes-title' && data.type !== 'go-notes-theme')) {
         return;
     }
 
@@ -24,6 +25,15 @@ window.addEventListener('message', (event) => {
             return;
         }
     } catch {
+        return;
+    }
+
+    if (data.type === 'go-notes-theme') {
+        document.documentElement.dataset.theme = data.dark ? 'dark' : 'light';
+        return;
+    }
+
+    if (typeof data.title !== 'string') {
         return;
     }
 

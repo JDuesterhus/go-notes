@@ -679,9 +679,15 @@ function QuillEditor() {
   function copyNoteLink() {
     if (selectedNoteId === null) return;
 
+    const note = useWorkspaceStore.getState().getNoteById(selectedNoteId);
+    if (!note?.public_id) {
+      notifyError('Could not copy the link');
+      return;
+    }
+
     const baseTag = document.querySelector('base');
     const basePath = baseTag?.getAttribute('href')?.replace(/\/$/, '') || '';
-    const url = `${window.location.origin}${basePath}/note/${selectedNoteId}`;
+    const url = `${window.location.origin}${basePath}/note/${note.public_id}`;
 
     const fallback = () => {
       const area = document.createElement('textarea');

@@ -13,23 +13,13 @@ import UserMenu from './components/UserMenu';
 import DialogHost from './components/DialogHost';
 import { useIsMobile } from './hooks/useMediaQuery';
 import { useConnectionStore, CONNECTION_LABELS } from './store/connectionStore';
+import { useThemeStore } from './store/themeStore';
 import { useUIStore, clampSidebarWidth, SIDEBAR_MIN, SIDEBAR_MAX } from './store/uiStore';
 import { getWorkspaces, getFolders, getNotes } from './api/workspaces';
 import { setAppTitle } from './utils/appTitle';
 
 const LAST_NOTE_KEY = 'go-notes-last-selected-note';
 const SIDEBAR_KEY_STEP = 16;
-
-/*
- * The desktop wrapper overlays its own controls on the page. Tagging the shell
- * lets index.css move our top-bar items clear of them. Electron puts its name
- * in the user agent; browsers and the Android WebView do not.
- */
-function detectShell(): void {
-  const isElectron = /electron/i.test(navigator.userAgent);
-  if (isElectron) document.documentElement.setAttribute('data-shell', 'electron');
-}
-detectShell();
 
 // Main app layout
 function MainApp() {
@@ -151,48 +141,46 @@ function MainApp() {
         setNotes(allNotes);
         setDataLoaded(true);
 
-        // A deep link wins over the last selected note.
+        // A deep link wins over the last selected note. Public IDs are the
+        // normal form; numeric IDs keep links from older releases working.
         const initialRouteNote = initialRouteNoteRef.current;
         const lastNoteId = localStorage.getItem(LAST_NOTE_KEY);
-        const requestedId = initialRouteNote != null
-          ? Number(initialRouteNote)
+        const requestedNote = initialRouteNote != null
+          ? allNotes.find(n => n.public_id === initialRouteNote && !n.is_trashed)
+            ?? allNotes.find(n => String(n.id) === initialRouteNote && !n.is_trashed)
           : lastNoteId
-            ? parseInt(lastNoteId, 10)
-            : null;
+            ? allNotes.find(n => n.id === parseInt(lastNoteId, 10) && !n.is_trashed)
+            : undefined;
 
-        if (initialRouteNote != null && (requestedId == null || !Number.isInteger(requestedId) || requestedId <= 0)) {
-          navigate('/', { replace: true });
-        } else if (requestedId != null) {
-          const note = allNotes.find(n => n.id === requestedId && !n.is_trashed);
+        if (requestedNote) {
+          console.log('[MainApp] Restoring note:', requestedNote);
 
-          if (note) {
-            console.log('[MainApp] Restoring note:', note);
+          // Expand the workspace
+          toggleWorkspace(requestedNote.workspace_id);
 
-            // Expand the workspace
-            toggleWorkspace(note.workspace_id);
-
-            // Expand all parent folders
-            if (note.folder_id) {
-              const expandFolderHierarchy = (folderId: number) => {
-                const folder = allFolders.find(f => f.id === folderId);
-                if (folder) {
-                  toggleFolder(folder.id);
-                  if (folder.parent_id) {
-                    expandFolderHierarchy(folder.parent_id);
-                  }
+          // Expand all parent folders
+          if (requestedNote.folder_id) {
+            const expandFolderHierarchy = (folderId: number) => {
+              const folder = allFolders.find(f => f.id === folderId);
+              if (folder) {
+                toggleFolder(folder.id);
+                if (folder.parent_id) {
+                  expandFolderHierarchy(folder.parent_id);
                 }
-              };
-              expandFolderHierarchy(note.folder_id);
-            }
-
-            // Select the note immediately
-            setSelectedNote(note.id);
-            console.log('[MainApp] Note restored:', note.id);
-          } else {
-            console.log('[MainApp] Note no longer exists or is not accessible');
-            localStorage.removeItem(LAST_NOTE_KEY);
-            if (initialRouteNote != null) navigate('/', { replace: true });
+              }
+            };
+            expandFolderHierarchy(requestedNote.folder_id);
           }
+
+          // Select the note immediately
+          setSelectedNote(requestedNote.id);
+          console.log('[MainApp] Note restored:', requestedNote.id);
+        } else if (initialRouteNote != null) {
+          console.log('[MainApp] Note no longer exists or is not accessible');
+          localStorage.removeItem(LAST_NOTE_KEY);
+          navigate('/', { replace: true });
+        } else if (lastNoteId) {
+          localStorage.removeItem(LAST_NOTE_KEY);
         }
       } catch (error) {
         console.error('[MainApp] Failed to load data:', error);
@@ -210,10 +198,15 @@ function MainApp() {
     }
   }, [selectedNoteId, dataLoaded]);
 
-  // Keep a shareable note path in the address bar
+  // Keep a shareable note path in the address bar. The public ID is random;
+  // numeric IDs only remain as a fallback for notes from older deployments.
   useEffect(() => {
     if (!dataLoaded) return;
-    const target = selectedNoteId ? `/note/${selectedNoteId}` : '/';
+    const note = selectedNoteId !== null
+      ? useWorkspaceStore.getState().getNoteById(selectedNoteId)
+      : undefined;
+    const noteRef = note?.public_id || (selectedNoteId !== null ? String(selectedNoteId) : null);
+    const target = noteRef ? `/note/${noteRef}` : '/';
     if (location.pathname !== target) {
       navigate(target, { replace: true });
     }
@@ -426,6 +419,15 @@ function AuthRoutes() {
 function App() {
   const baseTag = document.querySelector('base');
   const basename = baseTag?.getAttribute('href')?.replace(/\/$/, '') || '';
+  const isDark = useThemeStore((state) => state.isDark);
+
+  // Keep the native Electron wrapper (change-server menu, config window) in
+  // the same theme as the web app.
+  useEffect(() => {
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'go-notes-theme', dark: isDark }, '*');
+    }
+  }, [isDark]);
 
   return (
     <BrowserRouter basename={basename}>

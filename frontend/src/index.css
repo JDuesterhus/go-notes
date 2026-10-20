@@ -82,9 +82,6 @@
      itself. Without it, WebView's algorithmic darkening repaints everything
      flat black instead of using the palette below. */
   color-scheme: light;
-
-  /* Space reserved for host-app chrome overlapping the page (Electron) */
-  --shell-inset-right: 0px;
 }
 
 /* Dark Mode Overrides */
@@ -1337,33 +1334,4 @@ html, body, #root {
   font-size: 13px;
   line-height: 1.4;
   color: var(--text-secondary);
-}
-
-
-/* ============================================
-   HOST APP CHROME (Electron)
-   ============================================ */
-
-/*
- * The Electron wrapper draws its own "change server" button over the page's
- * top-right corner. Rather than guess its size, move the sync status to the
- * left half of the bar in that shell, leaving the corner to the account button.
- */
-/*
- * DOM order is: toggle, breadcrumb, status, account. Letting the breadcrumb
- * size to its content and giving the status the flexible gap puts the status
- * just after the breadcrumb on the left, with only the avatar in the corner.
- * (An earlier attempt also set order:-1, which threw the breadcrumb right.)
- */
-[data-shell="electron"] .conn-status {
-  margin-right: auto;
-}
-
-[data-shell="electron"] .breadcrumb {
-  flex: 0 1 auto;
-}
-
-/* Extra clearance for the corner if the button is wider than the avatar */
-[data-shell="electron"] .topbar {
-  padding-right: calc(12px + var(--shell-inset-right));
 }

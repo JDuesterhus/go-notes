@@ -22,6 +22,7 @@ export interface Folder {
 
 export interface Note {
   id: number;
+  public_id: string;
   workspace_id: number;
   title: string;
   yjs_room_id: string;

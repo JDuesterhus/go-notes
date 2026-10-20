@@ -6,6 +6,8 @@ import (
     "os"
     "strconv"
     "bytes"
+    "crypto/rand"
+    "encoding/hex"
     "encoding/json"
     "log"
     "net/http"
@@ -322,6 +324,7 @@ func IsWorkspaceMember(db *sql.DB, workspaceID, userID int) (bool, error) {
 
 type Note struct {
     ID          int        `json:"id"`
+    PublicID    string     `json:"public_id"`
     WorkspaceID int        `json:"workspace_id"`
     Title       string     `json:"title"`
     YjsRoomID   string     `json:"yjs_room_id"`
@@ -343,6 +346,14 @@ type Folder struct {
     CreatedAt   string `json:"created_at"`
 }
 
+func newNotePublicID() (string, error) {
+    var raw [12]byte
+    if _, err := rand.Read(raw[:]); err != nil {
+        return "", err
+    }
+    return hex.EncodeToString(raw[:]), nil
+}
+
 func CreateNote(db *sql.DB, workspaceID int, title string, folderID *int, createdBy *int, color string) (int, error) {
     if color == "" {
         color = "#FFFFFF"
@@ -350,11 +361,16 @@ func CreateNote(db *sql.DB, workspaceID int, title string, folderID *int, create
     if title == "" {
         title = "Untitled"
     }
-    
+
+    publicID, err := newNotePublicID()
+    if err != nil {
+        return 0, err
+    }
+
     var id int
-    err := db.QueryRow(
-        "INSERT INTO notes (workspace_id, title, yjs_room_id, folder_id, created_by, color) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
-        workspaceID, title, "temp", folderID, createdBy, color,
+    err = db.QueryRow(
+        "INSERT INTO notes (workspace_id, title, yjs_room_id, folder_id, created_by, color, public_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+        workspaceID, title, "temp", folderID, createdBy, color, publicID,
     ).Scan(&id)
     if err != nil {
         return 0, err
@@ -368,8 +384,8 @@ func CreateNote(db *sql.DB, workspaceID int, title string, folderID *int, create
 
 func GetNote(db *sql.DB, id int) (*Note, error) {
     var n Note
-    err := db.QueryRow("SELECT id, workspace_id, title, yjs_room_id, folder_id, created_by, created_at, updated_at, is_trashed, trashed_at, color FROM notes WHERE id = $1", id).
-        Scan(&n.ID, &n.WorkspaceID, &n.Title, &n.YjsRoomID, &n.FolderID, &n.CreatedBy, &n.CreatedAt, &n.UpdatedAt, &n.IsTrashed, &n.TrashedAt, &n.Color)
+    err := db.QueryRow("SELECT id, public_id, workspace_id, title, yjs_room_id, folder_id, created_by, created_at, updated_at, is_trashed, trashed_at, color FROM notes WHERE id = $1", id).
+        Scan(&n.ID, &n.PublicID, &n.WorkspaceID, &n.Title, &n.YjsRoomID, &n.FolderID, &n.CreatedBy, &n.CreatedAt, &n.UpdatedAt, &n.IsTrashed, &n.TrashedAt, &n.Color)
     if err != nil {
         return nil, err
     }
