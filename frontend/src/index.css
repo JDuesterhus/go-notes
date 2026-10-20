@@ -902,6 +902,72 @@ html, body, #root {
   }
 }
 
+/* Markdown import dialog: paste text or pick a file */
+.markdown-import-panel {
+  width: min(640px, 100%);
+}
+
+.markdown-import-textarea {
+  width: 100%;
+  min-height: 240px;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid var(--border-main);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-panel);
+  color: var(--text-main);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.markdown-import-textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.markdown-import-hint {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.markdown-import-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-main);
+}
+
+.markdown-import-footer-spacer {
+  flex: 1;
+}
+
+.markdown-import-footer .btn {
+  background-color: var(--bg-hover);
+  color: var(--text-main);
+}
+
+.markdown-import-footer .btn-primary {
+  background-color: var(--primary);
+  color: #fff;
+}
+
+.markdown-import-footer .btn-primary:disabled {
+  background-color: var(--bg-hover);
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 767px) {
+  .markdown-import-textarea {
+    min-height: 180px;
+  }
+}
+
 .editor-loading {
   position: absolute;
   inset: 0;

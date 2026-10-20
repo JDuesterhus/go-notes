@@ -254,7 +254,11 @@ function insertTable(
   for (let i = flat.length - 1; i >= 0; i -= 1) {
     if (!flat[i] || flat[i].length() === 0) continue;
     if (cellIndices[i] == null) continue;
-    quill.updateContents(new Delta().retain(cellIndices[i]).concat(flat[i]), 'api');
+    /*
+     * USER, not API: history only records user changes. With API the cell
+     * text was never part of the undo step and stayed behind after undo.
+     */
+    quill.updateContents(new Delta().retain(cellIndices[i]).concat(flat[i]), 'user');
   }
 
   /*
@@ -316,22 +320,35 @@ export function applyMarkdownImport(
   actions: MarkdownImportAction[],
   index: number,
 ): void {
+  /*
+   * One import must be one undo step, not one per segment and table. History
+   * merges consecutive user changes within its delay window; cutting off on
+   * both sides keeps earlier typing out and makes the following typing a
+   * separate step.
+   */
+  const history = quill.history as unknown as { cutoff?: () => void };
+  history.cutoff?.();
+
   let cursor = Math.max(0, Math.min(index, quill.getLength() - 1));
 
-  // Clicking mid-line should not turn the text before the caret into the
-  // imported heading: start the import on its own block.
-  if (cursor > 0 && quill.getText(cursor - 1, 1) !== '\n') {
-    quill.updateContents(new Delta().retain(cursor).insert('\n'), 'user');
-    cursor += 1;
-  }
-
-  for (const action of actions) {
-    if (action.kind === 'delta') {
-      quill.updateContents(new Delta().retain(cursor).concat(action.delta), 'user');
-      cursor += action.delta.length();
-      continue;
+  try {
+    // Clicking mid-line should not turn the text before the caret into the
+    // imported heading: start the import on its own block.
+    if (cursor > 0 && quill.getText(cursor - 1, 1) !== '\n') {
+      quill.updateContents(new Delta().retain(cursor).insert('\n'), 'user');
+      cursor += 1;
     }
-    cursor = insertTable(quill, cursor, action.cells);
+
+    for (const action of actions) {
+      if (action.kind === 'delta') {
+        quill.updateContents(new Delta().retain(cursor).concat(action.delta), 'user');
+        cursor += action.delta.length();
+        continue;
+      }
+      cursor = insertTable(quill, cursor, action.cells);
+    }
+  } finally {
+    history.cutoff?.();
   }
 
   quill.setSelection(Math.min(cursor, quill.getLength() - 1), 0, 'silent');

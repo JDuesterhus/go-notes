@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Quill from 'quill';
 import { QuillBinding } from 'y-quill';
 import * as Y from 'yjs';
@@ -23,6 +23,7 @@ import 'quill/dist/quill.snow.css';
 import 'quill-table-better/dist/quill-table-better.css';
 import 'katex/dist/katex.min.css';
 import ColorPicker from './ColorPicker';
+import MarkdownImportModal from './MarkdownImportModal';
 import { updateNote } from '../api/workspaces';
 import TagInput from './TagInput';
 import { setNoteTags } from '../api/workspaces';
@@ -34,7 +35,6 @@ Quill.register({
 Quill.register('modules/imageResize', ImageResize);
 
 const WIDE_EDITOR_KEY = 'go-notes.editor-wide';
-const MAX_MARKDOWN_BYTES = 5 * 1024 * 1024;
 
 const CURSOR_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A',
@@ -86,7 +86,7 @@ function QuillEditor() {
   // The armed import belongs to one note; switching notes hides it
   const pendingPaste =
     pendingImport !== null && pendingImport.noteId === selectedNoteId;
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -700,47 +700,34 @@ function QuillEditor() {
     setPendingImport(null);
   }
 
-  async function handleMarkdownFile(event: ChangeEvent<HTMLInputElement>) {
-    const input = event.currentTarget;
-    const file = input.files?.[0];
-    // Allow choosing the same file again after a cancel
-    input.value = '';
-    if (!file) return;
-
+  function importMarkdown(markdown: string, label: string) {
     const quill = quillRef.current;
     if (!quill) return;
 
-    if (file.size > MAX_MARKDOWN_BYTES) {
-      notifyError('Markdown files are limited to 5 MB');
+    const noteId = selectedNoteId;
+    if (noteId == null) return;
+
+    let actions: MarkdownImportAction[];
+    try {
+      actions = markdownToActions(quill, markdown);
+    } catch (error) {
+      console.error('[QuillEditor] Markdown import failed:', error);
+      notifyError('Could not convert that Markdown');
       return;
     }
 
-    try {
-      const noteId = selectedNoteId;
-      const markdown = await file.text();
-      // Reading the file is async; do not paste into a note the user moved to
-      if (noteId == null || useWorkspaceStore.getState().selectedNoteId !== noteId) {
-        return;
-      }
-
-      const actions = markdownToActions(quill, markdown);
-      if (actions.length === 0) {
-        notifyError('That file contains no text to import');
-        return;
-      }
-
-      if (quill.getText().trim().length === 0) {
-        applyMarkdownImport(quill, actions, 0);
-        notify(`Imported ${file.name}`);
-        return;
-      }
-
-      setPendingImport({ noteId, actions });
-      quill.focus();
-    } catch (error) {
-      console.error('[QuillEditor] Markdown import failed:', error);
-      notifyError('Could not read that Markdown file');
+    if (actions.length === 0) {
+      notifyError('That Markdown contains no text to import');
+      return;
     }
+
+    if (quill.getText().trim().length === 0) {
+      applyMarkdownImport(quill, actions, 0);
+      notify(`Imported ${label}`);
+      return;
+    }
+
+    setPendingImport({ noteId, actions });
   }
 
   return (
@@ -806,10 +793,10 @@ function QuillEditor() {
               </button>
               <button
                 className="icon-btn"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => setImportOpen(true)}
                 disabled={!selectedNoteId || isLoadingNote}
-                title="Import Markdown file"
-                aria-label="Import Markdown file"
+                title="Import Markdown"
+                aria-label="Import Markdown"
               >
                 <span className="material-symbols-outlined">upload_file</span>
               </button>
@@ -920,13 +907,15 @@ function QuillEditor() {
         )}
       </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".md,.markdown,.mdown,.txt,text/markdown,text/plain"
-        onChange={handleMarkdownFile}
-        hidden
-      />
+      {importOpen && (
+        <MarkdownImportModal
+          onCancel={() => setImportOpen(false)}
+          onImport={(markdown, label) => {
+            setImportOpen(false);
+            importMarkdown(markdown, label);
+          }}
+        />
+      )}
       
 {/* Inject styles to fix checklist sizing and remove duplicates */}
       <style>{`
