@@ -20,8 +20,8 @@ android {
         applicationId = "com.gonotes.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 10400
-        versionName = (project.findProperty("versionName") as String?) ?: "1.4.0"
+        versionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 10401
+        versionName = (project.findProperty("versionName") as String?) ?: "1.4.1"
     }
 
     signingConfigs {

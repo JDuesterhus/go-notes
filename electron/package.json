@@ -1,6 +1,6 @@
 {
   "name": "go-notes",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Desktop client for go-notes collaborative note-taking",
   "main": "main.js",
   "scripts": {
@@ -19,7 +19,7 @@
   "license": "MIT",
   "devDependencies": {
     "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^26.15.3"
   },
   "dependencies": {
     "electron-store": "^8.1.0"
