@@ -32,7 +32,7 @@ services:
       YJS_WS_PORT: ${YJS_WS_PORT:-1234}
       YJS_HTTP_PORT: ${YJS_HTTP_PORT:-1235}
       GO_BACKEND_URL: http://backend:${PORT:-8060}
-      API_BASE_PATH: ${API_BASE_PATH:-/test}
+      API_BASE_PATH: ${API_BASE_PATH:-/}
     depends_on:
       db:
         condition: service_healthy
@@ -50,7 +50,7 @@ services:
       - "${PORT:-8060}:${PORT:-8060}"
     environment:
       PORT: ${PORT:-8060}
-      API_BASE_PATH: ${API_BASE_PATH:-/test}
+      API_BASE_PATH: ${API_BASE_PATH:-/}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       DB_HOST: db
@@ -67,7 +67,7 @@ services:
       yjs:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "base='${API_BASE_PATH:-/test}'; base=$${base%/}; curl -fsS http://localhost:${PORT:-8060}$$base/health/live"]
+      test: ["CMD-SHELL", "base='${API_BASE_PATH:-/}'; base=$${base%/}; curl -fsS http://localhost:${PORT:-8060}$$base/health/live"]
       interval: 10s
       timeout: 5s
       retries: 3

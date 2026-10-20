@@ -38,8 +38,8 @@ A modern collaborative note-taking application with real-time editing, powerful 
 1. **Create directory and download files**
 ```bash
 mkdir go-notes && cd go-notes
-wget https://raw.githubusercontent.com/TheFozid/go-notes/main/docker-compose.yml
-wget https://raw.githubusercontent.com/TheFozid/go-notes/main/.env.example -O .env
+wget https://raw.githubusercontent.com/JDuesterhus/go-notes/main/docker-compose.yml
+wget https://raw.githubusercontent.com/JDuesterhus/go-notes/main/.env.example -O .env
 ```
 
 2. **Configure** (edit .env)
@@ -50,7 +50,7 @@ nano .env
    **Required changes:**
    - Change `JWT_SECRET` to a cryptographically secure random string (at least 32 characters)
    - Change `DB_PASSWORD` to a secure password
-   - Optionally change `API_BASE_PATH` (default: `/go-notes`)
+   - Leave `API_BASE_PATH=/` for a root deployment; change it only if the app is served under a subpath
    - Set `ALLOWED_ORIGINS` for production (see Configuration section)
 
 3. **Start**
@@ -60,22 +60,24 @@ docker compose up -d --build
 ```
 
 4. **Access**
-   - Open: `http://localhost:8060/go-notes/`
+   - Open: `http://localhost:8060/`
    - Create your admin account on first visit
 
 5. **Verify health**
 ```bash
 # Check if application is ready
-curl http://localhost:8060/go-notes/health/ready
+curl http://localhost:8060/health/ready
 
 # Expected response: {"status":"ready","database":"connected"}
 ```
 
 ### Update Server
+The fork builds its images locally (`go-notes-backend:local`, `go-notes-yjs:local`),
+so there is nothing to pull. Rebuild from the checked-out source:
 ```bash
 cd go-notes
-docker compose pull
-docker compose up -d
+git pull
+docker compose up -d --build
 ```
 
 ---
@@ -157,8 +159,8 @@ Download from [GitHub Releases](https://github.com/TheFozid/go-notes/releases/la
 ### First Launch
 1. Open the app
 2. Enter your go-notes server URL
-   - Example (HTTPS): `https://notes.yourdomain.com/go-notes`
-   - Example (local): `http://192.168.1.100:8060/go-notes`
+   - Example (HTTPS): `https://notes.yourdomain.com`
+   - Example (local): `http://192.168.1.100:8060`
    - **Important:** Include the protocol (http:// or https://)
 3. Login with your credentials
 4. Start editing!
@@ -197,8 +199,8 @@ Native Android client for accessing go-notes on mobile devices.
 2. Enable "Install from unknown sources" in Android settings
 3. Open the APK file to install
 4. Launch the app and enter your go-notes server URL
-   - Example (HTTPS): `https://notes.yourdomain.com/go-notes`
-   - Example (local): `http://192.168.1.100:8060/go-notes`
+   - Example (HTTPS): `https://notes.yourdomain.com`
+   - Example (local): `http://192.168.1.100:8060`
    - **Important:** Include the protocol (http:// or https://)
 5. Login with your credentials
 
@@ -226,9 +228,9 @@ server {
     ssl_certificate /etc/letsencrypt/live/notes.yourdomain.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/notes.yourdomain.com/privkey.pem;
     
-    # go-notes application
-    location /go-notes/ {
-        proxy_pass http://192.168.0.4:8060/go-notes/;
+    # go-notes application (root deployment)
+    location / {
+        proxy_pass http://192.168.0.4:8060/;
         
         # WebSocket support (REQUIRED for real-time collaboration)
         proxy_http_version 1.1;
@@ -279,7 +281,7 @@ Replace `192.168.0.4:8060` with your actual server IP/hostname and port.
 For automatic HTTPS with Caddy (easier alternative):
 ```caddyfile
 notes.yourdomain.com {
-    reverse_proxy /go-notes/* 192.168.0.4:8060
+    reverse_proxy 192.168.0.4:8060
 }
 ```
 
@@ -293,7 +295,7 @@ Caddy automatically handles SSL/TLS certificates via Let's Encrypt.
 ```bash
 # Server Configuration
 PORT=8060                    # Internal port (keep as 8060)
-API_BASE_PATH=/go-notes      # URL subpath
+API_BASE_PATH=/              # URL prefix; "/" serves at the root
 
 # Security (CHANGE THESE IN PRODUCTION!)
 JWT_SECRET=change-me-in-production-use-at-least-32-random-characters
@@ -338,7 +340,7 @@ TRASH_AUTO_DELETE_DAYS=30    # Auto-delete trashed notes after X days
 
 ### Changing the Base Path
 
-To use a different URL path (e.g., `/notes` instead of `/go-notes`):
+To serve the app under a subpath (e.g., `/notes` instead of `/`):
 
 1. Edit `.env`:
 ```bash
@@ -377,10 +379,10 @@ docker compose logs -f db
 ### Check health status
 ```bash
 # Liveness (is app alive?)
-curl http://localhost:8060/go-notes/health/live
+curl http://localhost:8060/health/live
 
 # Readiness (is app ready for traffic?)
-curl http://localhost:8060/go-notes/health/ready
+curl http://localhost:8060/health/ready
 ```
 
 ### Stop application
@@ -579,13 +581,13 @@ docker compose restart db
 - Check firewall allows port 8060
 - Verify `API_BASE_PATH` in .env matches URL
 - Check nginx/Caddy config if using reverse proxy
-- Test health endpoint: `curl http://localhost:8060/go-notes/health/live`
+- Test health endpoint: `curl http://localhost:8060/health/live`
 
 **Real-time collaboration not working:**
 - Ensure WebSocket support in nginx/Caddy config
 - Check browser console for WebSocket errors (F12)
 - Verify no firewall blocking WebSocket upgrades
-- Test WebSocket: `wscat -c ws://localhost:8060/go-notes/yjs/`
+- Test WebSocket: `wscat -c ws://localhost:8060/yjs/`
 
 **Rate limiting errors (429 Too Many Requests):**
 - Wait 1 minute and try again
@@ -598,7 +600,7 @@ docker compose restart db
 **Can't connect to server:**
 - Verify server URL includes protocol (http:// or https://)
 - Check server is accessible from device network
-- Test in browser first: `http://your-server:8060/go-notes/`
+- Test in browser first: `http://your-server:8060/`
 - Check server health: `/health/ready` endpoint
 
 **Offline content missing:**
@@ -672,7 +674,7 @@ Contributions are welcome! Here's how you can help:
 - Test your changes thoroughly
 - Update documentation as needed
 
-**Repository:** https://github.com/TheFozid/go-notes
+**Repository:** https://github.com/JDuesterhus/go-notes (fork of https://github.com/TheFozid/go-notes)
 
 ---
 
