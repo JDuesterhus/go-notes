@@ -36,11 +36,12 @@ const server = Server.configure({
         }
         
         const noteId = parseInt(match[2], 10);
-        
+        const workspaceId = parseInt(match[1], 10);
+
         try {
           const result = await pool.query(
-            'SELECT content FROM notes WHERE id = $1',
-            [noteId]
+            'SELECT content FROM notes WHERE id = $1 AND workspace_id = $2 AND yjs_room_id = $3',
+            [noteId, workspaceId, documentName]
           );
           
           if (result.rows.length > 0 && result.rows[0].content) {
@@ -69,11 +70,12 @@ const server = Server.configure({
         }
         
         const noteId = parseInt(match[2], 10);
-        
+        const workspaceId = parseInt(match[1], 10);
+
         try {
           await pool.query(
-            'UPDATE notes SET content = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-            [Buffer.from(state), noteId]
+            'UPDATE notes SET content = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND workspace_id = $3 AND yjs_room_id = $4',
+            [Buffer.from(state), noteId, workspaceId, documentName]
           );
           
           console.log(`[YJS] Saved ${state.length} bytes for ${documentName}`);
@@ -158,6 +160,7 @@ app.post('/initialize-document', async (req, res) => {
   }
   
   const noteId = parseInt(match[2], 10);
+  const workspaceId = parseInt(match[1], 10);
   
   try {
     console.log(`[YJS] Initializing default content for room: ${room_id}`);
@@ -167,8 +170,8 @@ app.post('/initialize-document', async (req, res) => {
     
     // Store in database
     await pool.query(
-      'UPDATE notes SET content = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-      [Buffer.from(defaultContent), noteId]
+      'UPDATE notes SET content = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND workspace_id = $3 AND yjs_room_id = $4',
+      [Buffer.from(defaultContent), noteId, workspaceId, room_id]
     );
     
     console.log(`[YJS] Successfully initialized ${defaultContent.length} bytes for ${room_id}`);

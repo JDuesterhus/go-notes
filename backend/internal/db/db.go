@@ -320,6 +320,26 @@ func IsWorkspaceMember(db *sql.DB, workspaceID, userID int) (bool, error) {
     return count > 0, err
 }
 
+// CanAccessYjsRoom verifies that the note belongs to the workspace encoded in
+// the room name, that the room name is the note's canonical Yjs room, and that
+// the user is still a member of that workspace.
+func CanAccessYjsRoom(db *sql.DB, noteID, workspaceID int, roomID string, userID int) (bool, error) {
+    var allowed bool
+    err := db.QueryRow(`
+        SELECT EXISTS (
+            SELECT 1
+            FROM notes n
+            JOIN workspace_members wm ON wm.workspace_id = n.workspace_id
+            WHERE n.id = $1
+              AND n.workspace_id = $2
+              AND n.yjs_room_id = $3
+              AND n.is_trashed = FALSE
+              AND wm.user_id = $4
+        )
+    `, noteID, workspaceID, roomID, userID).Scan(&allowed)
+    return allowed, err
+}
+
 // --- Note, Folder CRUD ---
 
 type Note struct {
@@ -760,6 +780,18 @@ func UpdateNoteMetadata(db *sql.DB, noteID int, updates map[string]interface{}) 
     args = append(args, noteID)
     
     _, err := db.Exec(query, args...)
+    if err != nil {
+        return err
+    }
+
+    // A note's canonical Yjs room contains its workspace ID. Keep both in
+    // sync when a note is moved between workspaces.
+    if _, movingWorkspace := updates["workspace_id"]; movingWorkspace {
+        _, err = db.Exec(
+            "UPDATE notes SET yjs_room_id = 'w' || workspace_id || '_n' || id WHERE id=$1",
+            noteID,
+        )
+    }
     return err
 }
 
@@ -987,7 +1019,7 @@ func cascadeWorkspaceIDToDescendants(db *sql.DB, parentFolderID int, newWorkspac
 	}
 	
 	// Update all notes in this folder
-	_, err = db.Exec("UPDATE notes SET workspace_id=$1 WHERE folder_id=$2", newWorkspaceID, parentFolderID)
+	_, err = db.Exec("UPDATE notes SET workspace_id=$1, yjs_room_id='w' || $1 || '_n' || id WHERE folder_id=$2", newWorkspaceID, parentFolderID)
 	if err != nil {
 		return err
 	}

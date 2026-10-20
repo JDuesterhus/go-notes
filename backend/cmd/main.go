@@ -377,10 +377,21 @@ api.GET("/health", func(c *gin.Context) {
 			return
 		}
 		
-		// Verify workspace membership
-		isMember, err := db.IsWorkspaceMember(database, req.WorkspaceID, claims.UserID)
-		if err != nil || !isMember {
-			c.JSON(http.StatusForbidden, gin.H{"valid": false, "error": "Not a workspace member"})
+		// Verify workspace membership and that the note really belongs to
+		// that workspace and room. Only the client's room ID is parsed by the
+		// Yjs server; the note lookup here is authoritative.
+		if req.WorkspaceID <= 0 || req.NoteID <= 0 || req.RoomID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"valid": false, "error": "Invalid room"})
+			return
+		}
+
+		allowed, err := db.CanAccessYjsRoom(database, req.NoteID, req.WorkspaceID, req.RoomID, claims.UserID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"valid": false, "error": "Could not verify note access"})
+			return
+		}
+		if !allowed {
+			c.JSON(http.StatusForbidden, gin.H{"valid": false, "error": "Not allowed to access this note"})
 			return
 		}
 		
@@ -389,6 +400,7 @@ api.GET("/health", func(c *gin.Context) {
 			"valid":        true,
 			"user_id":      claims.UserID,
 			"workspace_id": req.WorkspaceID,
+			"note_id":      req.NoteID,
 		})
 	})
 
