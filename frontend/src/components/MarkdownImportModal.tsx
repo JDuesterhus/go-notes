@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { notifyError } from '../store/dialogStore';
+import { hasUnbalancedInlineCode } from '../utils/markdownImport';
 
 const MAX_MARKDOWN_BYTES = 5 * 1024 * 1024;
 
@@ -13,6 +14,7 @@ export default function MarkdownImportModal({
   onImport,
 }: MarkdownImportModalProps) {
   const [text, setText] = useState('');
+  const [showBacktickWarning, setShowBacktickWarning] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -25,6 +27,16 @@ export default function MarkdownImportModal({
 
   function submit(markdown: string, label: string) {
     if (!markdown.trim()) return;
+
+    /*
+     * A single lost backtick silently moves every code span one boundary over.
+     * Ask once before importing; the second press goes ahead.
+     */
+    if (hasUnbalancedInlineCode(markdown) && !showBacktickWarning) {
+      setShowBacktickWarning(true);
+      return;
+    }
+
     onImport(markdown, label);
   }
 
@@ -92,7 +104,10 @@ export default function MarkdownImportModal({
             ref={textareaRef}
             className="markdown-import-textarea"
             value={text}
-            onChange={(event) => setText(event.target.value)}
+            onChange={(event) => {
+              setText(event.target.value);
+              setShowBacktickWarning(false);
+            }}
             placeholder={'# Title\n\nPaste Markdown here…'}
             spellCheck={false}
             aria-label="Markdown to import"
@@ -101,6 +116,13 @@ export default function MarkdownImportModal({
             Paste Markdown text or choose a file. An empty note takes it directly;
             in a note that already has text, you click where it should be inserted.
           </p>
+          {showBacktickWarning && (
+            <p className="markdown-import-warning" role="alert">
+              This Markdown has an unmatched backtick (<code>`</code>). A missing
+              backtick moves the inline-code formatting to the wrong words. Check
+              the text, or press “Insert anyway” to import it literally.
+            </p>
+          )}
         </div>
 
         <div className="markdown-import-footer">
@@ -129,7 +151,7 @@ export default function MarkdownImportModal({
             onClick={() => submit(text, 'Markdown')}
             disabled={!canInsert}
           >
-            Insert
+            {showBacktickWarning ? 'Insert anyway' : 'Insert'}
           </button>
         </div>
       </div>

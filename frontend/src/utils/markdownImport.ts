@@ -33,6 +33,29 @@ export function stripFrontMatter(markdown: string): string {
   return looksLikeYaml ? markdown.slice(match[0].length) : markdown;
 }
 
+/**
+ * CommonMark pairs backticks sequentially. If a selection loses one backtick,
+ * the remaining ones pair up differently and the formatting lands on the text
+ * between the code spans. Warn instead of silently importing that.
+ */
+export function hasUnbalancedInlineCode(markdown: string): boolean {
+  const withoutFences = markdown
+    .replace(/^```[\s\S]*?^```/gm, '')
+    .replace(/^~~~[\s\S]*?^~~~/gm, '');
+
+  return withoutFences.split(/\n{2,}/).some((block) => {
+    let ticks = 0;
+    for (let i = 0; i < block.length; i += 1) {
+      if (block[i] === '\\') {
+        i += 1;
+        continue;
+      }
+      if (block[i] === '`') ticks += 1;
+    }
+    return ticks % 2 === 1;
+  });
+}
+
 export function markdownToHtml(markdown: string): string {
   const source = stripFrontMatter(markdown.replace(/\r\n?/g, '\n'));
   return marked.parse(source, {

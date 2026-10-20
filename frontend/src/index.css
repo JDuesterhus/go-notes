@@ -933,6 +933,23 @@ html, body, #root {
   color: var(--text-secondary);
 }
 
+.markdown-import-warning {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--warning);
+  border-radius: var(--radius-md);
+  background-color: color-mix(in srgb, var(--warning) 14%, transparent);
+  color: var(--text-main);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.markdown-import-warning code {
+  background-color: color-mix(in srgb, currentColor 10%, transparent);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
 .markdown-import-footer {
   display: flex;
   align-items: center;
