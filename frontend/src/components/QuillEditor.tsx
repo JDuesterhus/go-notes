@@ -12,7 +12,7 @@ import { useThemeStore } from '../store/themeStore';
 import { useConnectionStore } from '../store/connectionStore';
 import { notify, notifyError } from '../store/dialogStore';
 import { getNote, updateNoteSearchText } from '../api/workspaces';
-import { getNoteColor } from '../utils/noteColors';
+import { getNoteBorderColor, getNoteColor } from '../utils/noteColors';
 import { normalizeBackgroundContrast } from '../utils/contrast';
 import {
   applyMarkdownImport,
@@ -445,9 +445,7 @@ function QuillEditor() {
         
         console.log('[QuillEditor] Binding created');
 
-        if (containerRef.current) {
-          containerRef.current.style.backgroundColor = getNoteColor(noteData.color, isDark);
-        }
+        applyNoteColor(noteData.color);
 
         // The text-change handler catches most of this, but run once after the
         // note background is applied as well, so already-saved notes are fixed
@@ -518,9 +516,7 @@ function QuillEditor() {
 
   // Update editor background when theme changes
   useEffect(() => {
-    if (containerRef.current && selectedNoteId) {
-      containerRef.current.style.backgroundColor = getNoteColor(currentNoteColor, isDark);
-    }
+    if (selectedNoteId) applyNoteColor(currentNoteColor);
   }, [isDark, currentNoteColor, selectedNoteId]);
 
   // Extract and sync searchable text content
@@ -613,9 +609,7 @@ function QuillEditor() {
 
       useWorkspaceStore.getState().updateNote(selectedNoteId, { color: newColor });
       
-      if (containerRef.current) {
-        containerRef.current.style.backgroundColor = getNoteColor(newColor, isDark);
-      }
+      applyNoteColor(newColor);
       
       console.log('[QuillEditor] Color updated successfully');
     } catch (error) {
@@ -639,6 +633,23 @@ function QuillEditor() {
     } catch (error) {
       console.error('[QuillEditor] Failed to update tags:', error);
     }
+  }
+
+  function applyNoteColor(color: string) {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const background = getNoteColor(color, isDark);
+    /*
+     * Quill's stylesheet uses !important for its container border and
+     * background, so a plain inline style would lose. These two have to win.
+     */
+    element.style.setProperty('background-color', background, 'important');
+    element.style.setProperty(
+      'border-left',
+      `4px solid ${getNoteBorderColor(color, isDark, background)}`,
+      'important',
+    );
   }
 
   function handleUndo() {

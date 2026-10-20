@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { NOTE_COLORS, DEFAULT_NOTE_COLOR } from '../utils/noteColors';
+import { parseCssColor, readableTextColor } from '../utils/contrast';
 
 interface ColorPickerProps {
   currentColor: string;
@@ -32,6 +33,10 @@ function ColorPicker({ currentColor, onColorChange, isDark }: ColorPickerProps) 
   
   // Determine the visual color to show on the main button
   const visualColor = (isDark && currentIndex !== -1) ? DARK_COLORS[currentIndex] : currentColor;
+  // The palette glyph has to stay visible on light and dark swatches
+  const iconColor = readableTextColor(
+    parseCssColor(visualColor) ?? parseCssColor('#ffffff')!,
+  );
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -73,14 +78,19 @@ function ColorPicker({ currentColor, onColorChange, isDark }: ColorPickerProps) 
         title={`Note color: ${COLOR_NAMES[currentColor] || 'Custom'}`}
       >
         <span
+          className="material-symbols-outlined"
+          aria-hidden="true"
           style={{
             position: 'absolute',
-            bottom: '3px',
-            right: '3px',
-            fontSize: '12px'
+            bottom: '1px',
+            right: '1px',
+            fontSize: '16px',
+            lineHeight: 1,
+            color: iconColor,
+            pointerEvents: 'none'
           }}
         >
-          🎨
+          palette
         </span>
       </button>
 

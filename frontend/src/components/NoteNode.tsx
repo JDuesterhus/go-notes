@@ -10,6 +10,8 @@ import {
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
 import { notifyError } from '../store/dialogStore';
 import { useUIStore } from '../store/uiStore';
+import { useThemeStore } from '../store/themeStore';
+import { getNoteBorderColor } from '../utils/noteColors';
 
 interface NoteNodeProps {
   note: Note;
@@ -36,6 +38,11 @@ export default function NoteNode({ note, workspaceId, onUpdate }: NoteNodeProps)
   }, [note.color]);
 
   const isSelected = selectedNoteId === note.id;
+  const { isDark } = useThemeStore();
+  const rowBackground = isSelected
+    ? (isDark ? '#1e3a8a' : '#eff6ff')
+    : (isDark ? '#1f2937' : '#f9fafb');
+  const noteBorderColor = getNoteBorderColor(noteColor, isDark, rowBackground);
 
   function handleClick() {
     if (moveMode.active) return; // Don't select note in move mode
@@ -100,7 +107,7 @@ export default function NoteNode({ note, workspaceId, onUpdate }: NoteNodeProps)
           cursor: moveMode.active ? 'default' : 'pointer',
           borderRadius: '6px',
           backgroundColor: isSelected ? 'var(--bg-selected)' : 'transparent',
-          borderLeft: `3px solid ${noteColor}`,
+          borderLeft: `3px solid ${noteBorderColor}`,
           gap: '4px',
           transition: 'background-color 0.15s',
           opacity: moveMode.active && moveMode.itemType === 'note' && moveMode.itemId === note.id
