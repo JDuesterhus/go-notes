@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog, session } = require('electron');
 const path = require('path');
 const Store = require('electron-store').default;
 
@@ -41,6 +41,25 @@ function createWebViewWindow(serverUrl) {
 }
 
 app.whenReady().then(() => {
+    // Exports are blob downloads from the web app inside the iframe. Ask for
+    // a destination instead of silently dropping them in the download folder.
+    session.defaultSession.on('will-download', (event, item) => {
+        const suggested = path.join(app.getPath('downloads'), item.getFilename());
+        const options = {
+            title: 'Save export',
+            defaultPath: suggested,
+        };
+        const target = mainWindow
+            ? dialog.showSaveDialogSync(mainWindow, options)
+            : dialog.showSaveDialogSync(options);
+
+        if (!target) {
+            item.cancel();
+            return;
+        }
+        item.setSavePath(target);
+    });
+
     const savedUrl = store.get('serverUrl');
     
     if (savedUrl) {
@@ -85,5 +104,14 @@ ipcMain.handle('open-config', async () => {
 ipcMain.handle('open-webview', async (event, url) => {
     mainWindow.close();
     createWebViewWindow(url);
+    return true;
+});
+
+// The note title lives in the web app inside the iframe; it posts the value
+// to the local wrapper, which forwards it here.
+ipcMain.handle('set-title', async (event, title) => {
+    if (typeof title === 'string' && title.length > 0 && title.length <= 500 && mainWindow) {
+        mainWindow.setTitle(title);
+    }
     return true;
 });

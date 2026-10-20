@@ -1,11 +1,14 @@
 package com.gonotes.app
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Base64
 import android.view.Menu
 import android.view.MenuItem
+import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -28,6 +31,7 @@ class WebViewActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var serverUrl: String
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+    private var pendingExport: Pair<ByteArray, String>? = null
 
     private val fileChooser =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -37,6 +41,55 @@ class WebViewActivity : AppCompatActivity() {
                 WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data),
             )
         }
+
+    private val saveExport =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val export = pendingExport
+            pendingExport = null
+            val uri = result.data?.data
+            if (result.resultCode != Activity.RESULT_OK || export == null || uri == null) {
+                return@registerForActivityResult
+            }
+
+            try {
+                contentResolver.openOutputStream(uri)?.use { it.write(export.first) }
+                Toast.makeText(
+                    this,
+                    getString(R.string.export_saved, export.second),
+                    Toast.LENGTH_LONG,
+                ).show()
+            } catch (_: Exception) {
+                Toast.makeText(this, R.string.export_failed, Toast.LENGTH_LONG).show()
+            }
+        }
+
+    /** Receives exported files from the web app and lets the user choose where to save them. */
+    private inner class FileSaver {
+        @JavascriptInterface
+        fun saveFile(base64: String, fileName: String, mimeType: String) {
+            val bytes = try {
+                Base64.decode(base64, Base64.DEFAULT)
+            } catch (_: IllegalArgumentException) {
+                return
+            }
+
+            runOnUiThread {
+                pendingExport = bytes to fileName
+                val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = mimeType.ifBlank { "application/octet-stream" }
+                    putExtra(Intent.EXTRA_TITLE, fileName)
+                }
+
+                try {
+                    saveExport.launch(intent)
+                } catch (_: Exception) {
+                    pendingExport = null
+                    Toast.makeText(this@WebViewActivity, R.string.export_failed, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,6 +110,7 @@ class WebViewActivity : AppCompatActivity() {
 
         webView = findViewById(R.id.webview)
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+        webView.addJavascriptInterface(FileSaver(), "GoNotesNative")
         with(webView.settings) {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -100,6 +154,12 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         webView.webChromeClient = object : WebChromeClient() {
+            override fun onReceivedTitle(view: WebView, title: String?) {
+                super.onReceivedTitle(view, title)
+                supportActionBar?.title = title?.takeIf { it.isNotBlank() }
+                    ?: getString(R.string.app_name)
+            }
+
             override fun onShowFileChooser(
                 view: WebView,
                 callback: ValueCallback<Array<Uri>>,

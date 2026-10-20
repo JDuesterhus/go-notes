@@ -26,6 +26,8 @@ import MarkdownImportModal from './MarkdownImportModal';
 import { updateNote } from '../api/workspaces';
 import TagInput from './TagInput';
 import { setNoteTags } from '../api/workspaces';
+import { setAppTitle } from '../utils/appTitle';
+import { exportNote, type ExportFormat } from '../utils/exportNote';
 
 Quill.register('modules/cursors', QuillCursors);
 Quill.register({
@@ -69,6 +71,10 @@ function QuillEditor() {
   const connectionStatus = useConnectionStore((state) => state.status);
   const isLoadingNote = connectionStatus === 'loading';
   const [moreOpen, setMoreOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+  const exportButtonRef = useRef<HTMLButtonElement>(null);
   const [title, setTitle] = useState('');
   const [isWide, setIsWide] = useState(() => {
     try {
@@ -627,6 +633,87 @@ function QuillEditor() {
     }
   }
 
+  useEffect(() => {
+    if (selectedNoteId === null) return;
+    setAppTitle(title.trim() ? title : 'Untitled');
+  }, [title, selectedNoteId]);
+
+  useEffect(() => () => setAppTitle(null), []);
+
+  useEffect(() => {
+    if (!exportOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (exportMenuRef.current?.contains(target) || exportButtonRef.current?.contains(target)) {
+        return;
+      }
+      setExportOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setExportOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [exportOpen]);
+
+  async function handleExport(format: ExportFormat) {
+    const quill = quillRef.current;
+    if (!quill || selectedNoteId === null) return;
+
+    setExportOpen(false);
+    setExporting(format);
+    try {
+      await exportNote(format, {
+        title,
+        html: quill.root.innerHTML,
+      });
+    } finally {
+      setExporting(null);
+    }
+  }
+
+  function copyNoteLink() {
+    if (selectedNoteId === null) return;
+
+    const baseTag = document.querySelector('base');
+    const basePath = baseTag?.getAttribute('href')?.replace(/\/$/, '') || '';
+    const url = `${window.location.origin}${basePath}/note/${selectedNoteId}`;
+
+    const fallback = () => {
+      const area = document.createElement('textarea');
+      area.value = url;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      try {
+        if (document.execCommand('copy')) {
+          notify('Note link copied');
+        } else {
+          notifyError('Could not copy the link');
+        }
+      } catch {
+        notifyError('Could not copy the link');
+      } finally {
+        area.remove();
+      }
+    };
+
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(
+        () => notify('Note link copied'),
+        fallback,
+      );
+    } else {
+      fallback();
+    }
+  }
+
   function handleUndo() {
     if (quillRef.current) {
       quillRef.current.history.undo();
@@ -765,6 +852,44 @@ function QuillEditor() {
               aria-label="Import Markdown"
             >
               <span className="material-symbols-outlined">upload_file</span>
+            </button>
+            <div className="export-actions">
+              <button
+                ref={exportButtonRef}
+                className="icon-btn"
+                onClick={() => setExportOpen((open) => !open)}
+                disabled={!selectedNoteId || isLoadingNote || exporting !== null}
+                title="Export note"
+                aria-label="Export note"
+                aria-haspopup="menu"
+                aria-expanded={exportOpen}
+              >
+                <span className="material-symbols-outlined">
+                  {exporting ? 'hourglass_top' : 'download'}
+                </span>
+              </button>
+              {exportOpen && (
+                <div className="export-menu" role="menu" ref={exportMenuRef}>
+                  <button type="button" role="menuitem" onClick={() => handleExport('rtf')}>
+                    RTF
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => handleExport('docm')}>
+                    Word (.docm)
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => handleExport('pdf')}>
+                    PDF
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              className="icon-btn"
+              onClick={copyNoteLink}
+              disabled={!selectedNoteId || isLoadingNote}
+              title="Copy note link"
+              aria-label="Copy note link"
+            >
+              <span className="material-symbols-outlined">share</span>
             </button>
             <div className="note-meta-spacer" />
             <div className="history-buttons">

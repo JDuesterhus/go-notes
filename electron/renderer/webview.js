@@ -11,6 +11,26 @@ window.electronAPI.onLoadUrl((url) => {
     webview.src = url;
 });
 
+// The app in the iframe cannot set this window's title (cross origin), so it
+// posts the note title. Only accept messages from the configured server.
+window.addEventListener('message', (event) => {
+    const data = event.data;
+    if (!data || data.type !== 'go-notes-title' || typeof data.title !== 'string') {
+        return;
+    }
+
+    try {
+        if (!serverUrl || new URL(serverUrl).origin !== event.origin) {
+            return;
+        }
+    } catch {
+        return;
+    }
+
+    document.title = data.title;
+    window.electronAPI.setTitle(data.title);
+});
+
 menuBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     menuPopup.classList.toggle('show');

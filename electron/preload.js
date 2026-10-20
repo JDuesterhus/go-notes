@@ -6,5 +6,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clearServerUrl: () => ipcRenderer.invoke('clear-server-url'),
     openConfig: () => ipcRenderer.invoke('open-config'),
     openWebView: (url) => ipcRenderer.invoke('open-webview', url),
+    setTitle: (title) => ipcRenderer.invoke('set-title', title),
     onLoadUrl: (callback) => ipcRenderer.on('load-url', (event, url) => callback(url))
 });

@@ -8,4 +8,6 @@
     <string name="reload">Reload</string>
     <string name="change_server">Change server</string>
     <string name="load_failed">Could not load the page. Check the server address and your connection.</string>
+    <string name="export_saved">Saved %1$s</string>
+    <string name="export_failed">Could not save the export.</string>
 </resources>

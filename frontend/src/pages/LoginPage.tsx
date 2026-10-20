@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { login } from '../api/auth';
 import useAuthStore from '../store/authStore';
 
 function LoginPage() {
+  const location = useLocation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -22,7 +24,9 @@ function LoginPage() {
       setAuth(response.token, response.user);
       const baseTag = document.querySelector('base');
       const basename = baseTag?.getAttribute('href')?.replace(/\/$/, '') || '';
-      window.location.href = basename + '/';
+      const from = (location.state as { from?: string } | null)?.from;
+      const target = from && from.startsWith('/') && !from.startsWith('//') ? from : '/';
+      window.location.href = basename + target;
     } catch (err: any) {
       if (err.response?.status === 429) {
         setError('Too many login attempts. Try again later.');

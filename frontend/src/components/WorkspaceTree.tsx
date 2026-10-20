@@ -79,15 +79,17 @@ export default function WorkspaceTree() {
       {/* Search first: the most frequent way in */}
       <SearchPanel />
 
-      <button
-        className="btn btn-primary new-note-btn"
-        onClick={handleNewNote}
-        disabled={!targetWorkspace || creatingNote}
-        title={targetWorkspace ? `New note in ${targetWorkspace.name}` : 'Create a workspace first'}
-      >
-        <span className="material-symbols-outlined" aria-hidden="true">add</span>
-        New note
-      </button>
+      <div className="sidebar-new-note">
+        <button
+          className="btn btn-primary new-note-btn"
+          onClick={handleNewNote}
+          disabled={!targetWorkspace || creatingNote}
+          title={targetWorkspace ? `New note in ${targetWorkspace.name}` : 'Create a workspace first'}
+        >
+          <span className="material-symbols-outlined" aria-hidden="true">add</span>
+          New note
+        </button>
+      </div>
 
       <div className="sidebar-section-head">
         <span className="sidebar-section-title">Workspaces</span>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { checkSetup } from '../api/auth';
 import useAuthStore from '../store/authStore';
 
@@ -11,6 +11,7 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [setupComplete, setSetupComplete] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const location = useLocation();
 
   useEffect(() => {
     async function checkSetupStatus() {
@@ -48,9 +49,16 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/setup" replace />;
   }
 
-  // If setup complete but not authenticated, redirect to login
-if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+  // If setup complete but not authenticated, redirect to login and remember
+  // the note link so the user lands there after signing in.
+  if (!isAuthenticated) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: `${location.pathname}${location.search}` }}
+      />
+    );
   }
 
   // User is authenticated, render protected content

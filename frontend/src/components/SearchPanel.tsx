@@ -20,7 +20,7 @@ export default function SearchPanel() {
       clearTimeout(timeoutRef.current);
     }
 
-    timeoutRef.current = setTimeout(() => {
+    timeoutRef.current = window.setTimeout(() => {
       setDebouncedQuery(searchQuery);
     }, 500);
 
@@ -55,11 +55,7 @@ export default function SearchPanel() {
   }, [debouncedQuery, searchMode]);
 
   return (
-    <div style={{ 
-      marginTop: '16px',
-      paddingTop: '16px',
-      borderTop: '1px solid var(--border-main)'
-    }}>
+    <div>
       {/* Search Input */}
       <div style={{ padding: '0 12px 12px 12px' }}>
         <div style={{ position: 'relative' }}>
@@ -100,84 +96,37 @@ export default function SearchPanel() {
             search
           </span>
         </div>
-      </div>
 
-      {/* Search Mode Toggle */}
-      <div style={{ 
-        padding: '0 12px 12px 12px',
-        display: 'flex',
-        gap: '8px'
-      }}>
-        <button
-          onClick={() => setSearchMode('metadata')}
-          style={{
-            flex: 1,
-            padding: '6px 12px',
-            fontSize: '13px',
-            fontWeight: 500,
-            border: '1px solid',
-            borderColor: searchMode === 'metadata' ? 'var(--primary)' : 'var(--border-hover)',
-            borderRadius: '6px',
-            backgroundColor: searchMode === 'metadata' ? 'var(--bg-selected)' : 'var(--bg-main)',
-            color: searchMode === 'metadata' ? 'var(--primary)' : 'var(--text-secondary)',
-            cursor: 'pointer',
-            transition: 'all 0.15s',
-            fontFamily: 'inherit'
-          }}
-          onMouseEnter={(e) => {
-            if (searchMode !== 'metadata') {
-              e.currentTarget.style.borderColor = 'var(--text-tertiary)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (searchMode !== 'metadata') {
-              e.currentTarget.style.borderColor = 'var(--border-hover)';
-            }
-          }}
-        >
-          Title + Tags
-        </button>
-        <button
-          onClick={() => setSearchMode('full')}
-          style={{
-            flex: 1,
-            padding: '6px 12px',
-            fontSize: '13px',
-            fontWeight: 500,
-            border: '1px solid',
-            borderColor: searchMode === 'full' ? 'var(--primary)' : 'var(--border-hover)',
-            borderRadius: '6px',
-            backgroundColor: searchMode === 'full' ? 'var(--bg-selected)' : 'var(--bg-main)',
-            color: searchMode === 'full' ? 'var(--primary)' : 'var(--text-secondary)',
-            cursor: 'pointer',
-            transition: 'all 0.15s',
-            fontFamily: 'inherit'
-          }}
-          onMouseEnter={(e) => {
-            if (searchMode !== 'full') {
-              e.currentTarget.style.borderColor = 'var(--text-tertiary)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (searchMode !== 'full') {
-              e.currentTarget.style.borderColor = 'var(--border-hover)';
-            }
-          }}
-        >
-          Full Content
-        </button>
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          marginTop: '8px',
+          fontSize: '13px',
+          color: 'var(--text-secondary)',
+          cursor: 'pointer',
+          userSelect: 'none'
+        }}>
+          <input
+            type="checkbox"
+            checked={searchMode === 'full'}
+            onChange={(e) => setSearchMode(e.target.checked ? 'full' : 'metadata')}
+            style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
+          />
+          Also search content
+        </label>
       </div>
 
       {/* Search Results */}
       {debouncedQuery.trim() && (
-        <div style={{ 
+        <div style={{
           marginLeft: '8px',
           marginRight: '8px',
           maxHeight: '400px',
           overflowY: 'auto'
         }}>
           {isSearching ? (
-            <div style={{ 
+            <div style={{
               padding: '16px',
               color: 'var(--text-tertiary)',
               fontSize: '13px',
@@ -186,7 +135,7 @@ export default function SearchPanel() {
               Searching...
             </div>
           ) : searchResults.length === 0 ? (
-            <div style={{ 
+            <div style={{
               padding: '16px',
               color: 'var(--text-tertiary)',
               fontSize: '13px',
@@ -196,7 +145,7 @@ export default function SearchPanel() {
             </div>
           ) : (
             <>
-              <div style={{ 
+              <div style={{
                 padding: '8px 12px 4px 12px',
                 fontSize: '12px',
                 color: 'var(--text-secondary)',
@@ -210,7 +159,7 @@ export default function SearchPanel() {
               {searchResults.map((note) => {
                 const workspace = workspaces.find(w => w.id === note.workspace_id);
                 if (!workspace) return null;
-                
+
                 return (
                   <NoteNode
                     key={note.id}

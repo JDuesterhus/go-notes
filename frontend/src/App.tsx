@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { checkSetup } from './api/auth';
 import useAuthStore from './store/authStore';
@@ -15,6 +15,7 @@ import { useIsMobile } from './hooks/useMediaQuery';
 import { useConnectionStore, CONNECTION_LABELS } from './store/connectionStore';
 import { useUIStore, clampSidebarWidth, SIDEBAR_MIN, SIDEBAR_MAX } from './store/uiStore';
 import { getWorkspaces, getFolders, getNotes } from './api/workspaces';
+import { setAppTitle } from './utils/appTitle';
 
 const LAST_NOTE_KEY = 'go-notes-last-selected-note';
 const SIDEBAR_KEY_STEP = 16;
@@ -33,11 +34,16 @@ detectShell();
 // Main app layout
 function MainApp() {
   const isMobile = useIsMobile();
+  const { noteId: routeNoteId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [isResizing, setIsResizing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const dragStart = useRef<{ x: number; width: number } | null>(null);
+  // The URL is read once on mount; later selections write the URL instead.
+  const initialRouteNoteRef = useRef<string | undefined>(routeNoteId);
 
   const desktopSidebarOpen = useUIStore((state) => state.desktopSidebarOpen);
   const mobileSidebarOpen = useUIStore((state) => state.mobileSidebarOpen);
@@ -145,12 +151,19 @@ function MainApp() {
         setNotes(allNotes);
         setDataLoaded(true);
 
-        // Restore last selected note
+        // A deep link wins over the last selected note.
+        const initialRouteNote = initialRouteNoteRef.current;
         const lastNoteId = localStorage.getItem(LAST_NOTE_KEY);
+        const requestedId = initialRouteNote != null
+          ? Number(initialRouteNote)
+          : lastNoteId
+            ? parseInt(lastNoteId, 10)
+            : null;
 
-        if (lastNoteId) {
-          const noteId = parseInt(lastNoteId, 10);
-          const note = allNotes.find(n => n.id === noteId && !n.is_trashed);
+        if (initialRouteNote != null && (requestedId == null || !Number.isInteger(requestedId) || requestedId <= 0)) {
+          navigate('/', { replace: true });
+        } else if (requestedId != null) {
+          const note = allNotes.find(n => n.id === requestedId && !n.is_trashed);
 
           if (note) {
             console.log('[MainApp] Restoring note:', note);
@@ -173,11 +186,12 @@ function MainApp() {
             }
 
             // Select the note immediately
-            setSelectedNote(noteId);
-            console.log('[MainApp] Note restored:', noteId);
+            setSelectedNote(note.id);
+            console.log('[MainApp] Note restored:', note.id);
           } else {
-            console.log('[MainApp] Note no longer exists, clearing');
+            console.log('[MainApp] Note no longer exists or is not accessible');
             localStorage.removeItem(LAST_NOTE_KEY);
+            if (initialRouteNote != null) navigate('/', { replace: true });
           }
         }
       } catch (error) {
@@ -194,6 +208,21 @@ function MainApp() {
       localStorage.setItem(LAST_NOTE_KEY, selectedNoteId.toString());
       console.log('[MainApp] Saved last note:', selectedNoteId);
     }
+  }, [selectedNoteId, dataLoaded]);
+
+  // Keep a shareable note path in the address bar
+  useEffect(() => {
+    if (!dataLoaded) return;
+    const target = selectedNoteId ? `/note/${selectedNoteId}` : '/';
+    if (location.pathname !== target) {
+      navigate(target, { replace: true });
+    }
+  }, [selectedNoteId, dataLoaded, location.pathname, navigate]);
+
+  // The editor sets the note title while one is open; reset it otherwise
+  useEffect(() => {
+    if (!dataLoaded) return;
+    if (selectedNoteId === null) setAppTitle(null);
   }, [selectedNoteId, dataLoaded]);
 
   const handleLogout = () => {
@@ -373,6 +402,15 @@ function AuthRoutes() {
 
       <Route
         path="/"
+        element={
+          <ProtectedRoute>
+            <MainApp />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/note/:noteId"
         element={
           <ProtectedRoute>
             <MainApp />
